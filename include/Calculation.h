@@ -40,6 +40,7 @@ class Calculation
         void WriteDelta(int);
         Array<double> GetRealVec(Array<complex<double>>);
         Array<double> GetImagVec(Array<complex<double>> );
+        bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
 
         class FunctionDelta : 
         public HoppingAmplitude::AmplitudeCallback
@@ -49,16 +50,6 @@ class Calculation
         };
         static FunctionDelta functionDelta;
         
-        // public Solver::Diagonalizer::SelfConsistencyCallback
-        class SelfConsistencyCallback :
-        public Solver::ChebyshevExpander::SelfConsistencyCallback
-        {
-                public:
-                bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
-                // bool selfConsistencyCallback(Solver::Diagonalizer &solver);
-                
-        };
-        static SelfConsistencyCallback selfConsistencyCallback;
 
         static unsigned int system_length;
         static unsigned int system_size;

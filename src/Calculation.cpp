@@ -27,7 +27,7 @@ complex<double> Calculation::delta_start;
 complex<double> Calculation::coupling_potential;
 
 Calculation::FunctionDelta Calculation::functionDelta;
-Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
+// Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
 const double Calculation::EPS = 1E-3;
 const complex<double> Calculation::I = complex<double>(0.0, 1.0);
@@ -246,11 +246,6 @@ void Calculation::InitModel()
 
 
     model.construct();
-    solver.setModel(model);
-    // solver.setMaxIterations(1000);
-    solver.setScaleFactor(10);
-    solver.setNumCoefficients(1000);
-    solver.setUseLookupTable(true);
 }
 
 
@@ -279,8 +274,7 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
     }
 }
 
-// bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
-bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
+bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
 {
     // PropertyExtractor::Diagonalizer pe(solver);
     PropertyExtractor::ChebyshevExpander pe(solver);
@@ -310,22 +304,30 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Cheby
     {
         return false;
     }
-    
 }
 
 void Calculation::DoScCalc()
 {
+    unsigned int max_iterations = 200;
     solver.setModel(model);
-    SelfConsistencyCallback selfConsistencyCallback;
-    solver.setSelfConsistencyCallback(selfConsistencyCallback);
-    solver.setMaxIterations(100);
-    solver.run();
+    solver.setScaleFactor(10);
+    solver.setNumCoefficients(10000);
+    solver.setUseLookupTable(true);
+    solver.setCalculateCoefficientsOnGPU(false);
+    for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
+    {
+        //solver.run();
+        if(selfConsistencyCallback(solver))
+        {
+            break;
+        }
+    }
 	Streams::out << "finished calc" << endl;
 }
 
 void Calculation::WriteOutput()
 {
-	PropertyExtractor::Diagonalizer pe(solver);
+	PropertyExtractor::ChebyshevExpander pe(solver);
   FileWriter::setFileName(outputFileName);
 
   const double UPPER_BOUND = 4; //10*abs(delta_start);
@@ -340,8 +342,8 @@ void Calculation::WriteOutput()
 	FileWriter::writeDOS(dos);
 
 	//Extract eigen values and write these to file
-	Property::EigenValues ev = pe.getEigenValues();
-	FileWriter::writeEigenValues(ev);
+	// Property::EigenValues ev = pe.getEigenValues();
+	// FileWriter::writeEigenValues(ev);
 
 	//Extract LDOS and write to file
 	Property::LDOS ldos = pe.calculateLDOS(
@@ -353,16 +355,16 @@ void Calculation::WriteOutput()
   WriteDelta(0);
 
 
-  int nr_excited_states = 30;
+//   int nr_excited_states = 30;
 
-  for(int i = 1; i <= nr_excited_states; i++){
-      Property::WaveFunctions wf = pe.calculateWaveFunctions(
-          {{IDX_ALL, IDX_ALL, IDX_ALL}},
-          {system_size*4+i-nr_excited_states/2}
-      );
-      FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+//   for(int i = 1; i <= nr_excited_states; i++){
+//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
+//           {{IDX_ALL, IDX_ALL, IDX_ALL}},
+//           {system_size*4+i-nr_excited_states/2}
+//       );
+//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
 
-  }
+//   }
 
 }
 
