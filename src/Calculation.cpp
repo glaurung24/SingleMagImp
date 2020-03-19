@@ -9,9 +9,9 @@
 #include "TBTK/Property/LDOS.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
-#include "TBTK/FileWriter.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
+#include "TBTK/Exporter.h"
 
 #include <complex>
 #include<math.h>
@@ -59,7 +59,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 10;
+    system_length = 3;
     if(!symmetry_on)
     {
         system_size = 2*system_length + 1;
@@ -311,7 +311,7 @@ void Calculation::DoScCalc()
     unsigned int max_iterations = 200;
     solver.setModel(model);
     solver.setScaleFactor(10);
-    solver.setNumCoefficients(10000);
+    solver.setNumCoefficients(20000);
     solver.setUseLookupTable(true);
     solver.setCalculateCoefficientsOnGPU(false);
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
@@ -328,9 +328,10 @@ void Calculation::DoScCalc()
 void Calculation::WriteOutput()
 {
 	PropertyExtractor::ChebyshevExpander pe(solver);
-  FileWriter::setFileName(outputFileName);
+    Exporter exporter;
+    exporter.setFormat(Exporter::Format::ColumnMajor);
 
-  const double UPPER_BOUND = 4; //10*abs(delta_start);
+    const double UPPER_BOUND = 4; //10*abs(delta_start);
 	const double LOWER_BOUND = -4; //-10*abs(delta_start);
 	const int RESOLUTION = 100000;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
@@ -339,7 +340,7 @@ void Calculation::WriteOutput()
 
   //Extract DOS and write to file
 	Property::DOS dos = pe.calculateDOS();
-	FileWriter::writeDOS(dos);
+    exporter.save(dos, "dos.csv");
 
 	//Extract eigen values and write these to file
 	// Property::EigenValues ev = pe.getEigenValues();
@@ -350,7 +351,7 @@ void Calculation::WriteOutput()
 		{IDX_X, IDX_Y, IDX_SUM_ALL},
 		{system_size, system_size,	4}
 	);
-	FileWriter::writeLDOS(ldos);
+	exporter.save(ldos, "ldos.csv");
 
   WriteDelta(0);
 
@@ -370,12 +371,9 @@ void Calculation::WriteOutput()
 
 void Calculation::WriteDelta(int nr_loop)
 {
-    FileWriter::setFileName(outputFileName);
-    const int RANK = 2;
-    int dims[RANK] = {system_size, system_size};
-    FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
-    FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
-
+    Exporter exporter;
+    exporter.setFormat(Exporter::Format::ColumnMajor);
+    exporter.save(delta, "delta.csv");
 }
 
 Array<double> Calculation::GetRealVec(Array<complex<double>> input)

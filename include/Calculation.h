@@ -62,6 +62,16 @@ class Calculation
         static const complex<double> I;
         static const double EPS;
 
+        // class SelfConsistencyCallback :
+        // public Solver::ChebyshevExpander::SelfConsistencyCallback
+        // {
+        //         public:
+        //         bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
+        //         // bool selfConsistencyCallback(Solver::Diagonalizer &solver);
+                
+        // };
+        // static SelfConsistencyCallback selfConsistencyCallback;
+
         // static Solver::Diagonalizer solver;
         static Solver::ChebyshevExpander solver;
         static Array<complex<double>> delta;
