@@ -35,8 +35,8 @@ const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
 
-// Solver::Diagonalizer Calculation::solver;
-Solver::ChebyshevExpander Calculation::solver;
+Solver::Diagonalizer Calculation::solver;
+// Solver::ChebyshevExpander Calculation::solver;
 
 string Calculation::outputFileName = "";
 
@@ -247,10 +247,10 @@ void Calculation::InitModel()
 
     model.construct();
     solver.setModel(model);
-    // solver.setMaxIterations(1000);
-    solver.setScaleFactor(10);
-    solver.setNumCoefficients(1000);
-    solver.setUseLookupTable(true);
+    solver.setMaxIterations(1000);
+    // solver.setScaleFactor(10);
+    // solver.setNumCoefficients(1000);
+    // solver.setUseLookupTable(true);
 }
 
 
@@ -279,11 +279,10 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
     }
 }
 
-// bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
-bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
+bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 {
-    // PropertyExtractor::Diagonalizer pe(solver);
-    PropertyExtractor::ChebyshevExpander pe(solver);
+    PropertyExtractor::Diagonalizer pe(solver);
+    // PropertyExtractor::ChebyshevExpander pe(solver);
 
     delta_old = delta;
     double diff = 0.0;

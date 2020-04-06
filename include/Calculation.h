@@ -49,13 +49,11 @@ class Calculation
         };
         static FunctionDelta functionDelta;
         
-        // public Solver::Diagonalizer::SelfConsistencyCallback
         class SelfConsistencyCallback :
-        public Solver::ChebyshevExpander::SelfConsistencyCallback
+        public Solver::Diagonalizer::SelfConsistencyCallback
         {
                 public:
-                bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
-                // bool selfConsistencyCallback(Solver::Diagonalizer &solver);
+                bool selfConsistencyCallback(Solver::Diagonalizer &solver);
                 
         };
         static SelfConsistencyCallback selfConsistencyCallback;
@@ -71,8 +69,8 @@ class Calculation
         static const complex<double> I;
         static const double EPS;
 
-        // static Solver::Diagonalizer solver;
-        static Solver::ChebyshevExpander solver;
+        static Solver::Diagonalizer solver;
+        //static Solver::ChebyshevExpander solver;
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;
 
