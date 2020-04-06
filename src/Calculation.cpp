@@ -283,17 +283,31 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     double diff = 0.0;
 
 
+    #pragma omp parallel
+    #pragma omp for
     for(unsigned int x=0; x < system_size; x++)
     {
         for(unsigned int y = 0; y < system_size; y++)
         {
+            // cout << x << " " << y << endl;
+            // delta[{x , y}] = delta_old[{x , y}];
             delta[{x , y}] = (-pe.calculateExpectationValue({x,y, 3},{x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+        }
+    }
+
+
+    for(unsigned int x=0; x < system_size; x++)
+    {
+        for(unsigned int y = 0; y < system_size; y++)
+        {
             if(abs((delta[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
             {
                 diff = abs(delta[{x , y}]-delta_old[{x , y}]);
             }
+            cout << x*system_size + y << endl;
         }
     }
+
     diff = diff/abs(delta_start);
     Streams::out << "Updated delta, ddelta = " << to_string(diff) << endl;
     if(diff < EPS)
@@ -304,6 +318,7 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     {
         return false;
     }
+
 }
 
 void Calculation::DoScCalc()
@@ -312,11 +327,10 @@ void Calculation::DoScCalc()
     solver.setModel(model);
     solver.setScaleFactor(10);
     solver.setNumCoefficients(20000);
-    solver.setUseLookupTable(true);
+    solver.setUseLookupTable(false);
     solver.setCalculateCoefficientsOnGPU(false);
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
     {
-        //solver.run();
         if(selfConsistencyCallback(solver))
         {
             break;
@@ -339,8 +353,8 @@ void Calculation::WriteOutput()
 
 
   //Extract DOS and write to file
-	Property::DOS dos = pe.calculateDOS();
-    exporter.save(dos, "dos.csv");
+	// Property::DOS dos = pe.calculateDOS();
+    // exporter.save(dos, "dos.csv");
 
 	//Extract eigen values and write these to file
 	// Property::EigenValues ev = pe.getEigenValues();
