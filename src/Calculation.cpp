@@ -289,8 +289,6 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     {
         for(unsigned int y = 0; y < system_size; y++)
         {
-            // cout << x << " " << y << endl;
-            // delta[{x , y}] = delta_old[{x , y}];
             delta[{x , y}] = (-pe.calculateExpectationValue({x,y, 3},{x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
         }
     }
@@ -304,7 +302,6 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
             {
                 diff = abs(delta[{x , y}]-delta_old[{x , y}]);
             }
-            cout << x*system_size + y << endl;
         }
     }
 
@@ -318,15 +315,14 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     {
         return false;
     }
-
 }
 
 void Calculation::DoScCalc()
 {
     unsigned int max_iterations = 200;
     solver.setModel(model);
-    solver.setScaleFactor(10);
-    solver.setNumCoefficients(20000);
+    solver.setScaleFactor(20);
+    solver.setNumCoefficients(4000);
     solver.setUseLookupTable(false);
     solver.setCalculateCoefficientsOnGPU(false);
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
@@ -347,7 +343,7 @@ void Calculation::WriteOutput()
 
     const double UPPER_BOUND = 4; //10*abs(delta_start);
 	const double LOWER_BOUND = -4; //-10*abs(delta_start);
-	const int RESOLUTION = 100000;
+	const int RESOLUTION = 2000;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
@@ -365,6 +361,7 @@ void Calculation::WriteOutput()
 		{IDX_X, IDX_Y, IDX_SUM_ALL},
 		{system_size, system_size,	4}
 	);
+
 	exporter.save(ldos, "ldos.csv");
 
   WriteDelta(0);
