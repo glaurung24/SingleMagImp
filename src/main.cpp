@@ -32,7 +32,7 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int vz = 1; vz <= 1; vz++)
+	for(int vz = 1; vz <= 10; vz++)
 	{
 		string outFile = "vz_" + to_string(vz/10.0);
 		fstream fileStream;

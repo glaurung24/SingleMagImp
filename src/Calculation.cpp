@@ -12,6 +12,7 @@
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
+#include "TBTK/FileWriter.h"
 
 #include <complex>
 #include<math.h>
@@ -29,7 +30,7 @@ complex<double> Calculation::coupling_potential;
 Calculation::FunctionDelta Calculation::functionDelta;
 // Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
-const double Calculation::EPS = 1E-3;
+const double Calculation::EPS = 1E-4;
 const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 
 Array<complex<double>> Calculation::delta;
@@ -59,7 +60,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 3;
+    system_length = 10;
     if(!symmetry_on)
     {
         system_size = 2*system_length + 1;
@@ -142,7 +143,7 @@ void Calculation::InitModel()
                     
 
     //---------------------------Zeeman term------------------------------------------
-                    if(x == system_length and  y == system_length)
+                    if(x == system_length/2 and  y == system_length/2)
                     {
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s}, {x, y, s});
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
@@ -283,7 +284,7 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     double diff = 0.0;
 
 
-    #pragma omp parallel
+    #pragma omp parallel  num_threads( 4 )
     #pragma omp for
     for(unsigned int x=0; x < system_size; x++)
     {
@@ -341,6 +342,8 @@ void Calculation::WriteOutput()
     Exporter exporter;
     exporter.setFormat(Exporter::Format::ColumnMajor);
 
+    FileWriter::setFileName(outputFileName);
+
     const double UPPER_BOUND = 4; //10*abs(delta_start);
 	const double LOWER_BOUND = -4; //-10*abs(delta_start);
 	const int RESOLUTION = 2000;
@@ -361,8 +364,9 @@ void Calculation::WriteOutput()
 		{IDX_X, IDX_Y, IDX_SUM_ALL},
 		{system_size, system_size,	4}
 	);
+    FileWriter::writeLDOS(ldos);
 
-	exporter.save(ldos, "ldos.csv");
+	// exporter.save(ldos, "ldos.csv");
 
   WriteDelta(0);
 
@@ -382,9 +386,14 @@ void Calculation::WriteOutput()
 
 void Calculation::WriteDelta(int nr_loop)
 {
-    Exporter exporter;
-    exporter.setFormat(Exporter::Format::ColumnMajor);
-    exporter.save(delta, "delta.csv");
+    // Exporter exporter;
+    // exporter.setFormat(Exporter::Format::ColumnMajor);
+    // exporter.save(delta, "delta.csv");
+    FileWriter::setFileName(outputFileName);
+    const int RANK = 2;
+    int dims[RANK] = {system_size, system_size};
+    FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
+    FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
 }
 
 Array<double> Calculation::GetRealVec(Array<complex<double>> input)
