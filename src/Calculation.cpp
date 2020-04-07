@@ -101,7 +101,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     use_gpu = false;
     chebychev_coefficients = 1000;
     energy_points = 2*chebychev_coefficients;
-    energy_bandwidth = 6;
+    energy_bandwidth = 8;
 
     max_arnoldi_iterations = 4000;
     num_eigenvals = 30;
