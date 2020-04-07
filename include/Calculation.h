@@ -6,6 +6,7 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 #include "TBTK/Array.h"
@@ -38,6 +39,7 @@ class Calculation
     private:
 
         void WriteDelta(int);
+        Solver::ArnoldiIterator runArnoldiIterator();
         Array<double> GetRealVec(Array<complex<double>>);
         Array<double> GetImagVec(Array<complex<double>> );
         bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
@@ -53,6 +55,12 @@ class Calculation
 
         static unsigned int system_length;
         static unsigned int system_size;
+        static unsigned int energy_points;
+        static unsigned int chebychev_coefficients;
+        static unsigned int max_arnoldi_iterations;
+        static unsigned int num_eigenvals;
+        static unsigned int num_lanczos_vecs;
+        static double energy_bandwidth;
         static complex<double> mu;
         static complex<double> Vz;
         static complex<double> t;

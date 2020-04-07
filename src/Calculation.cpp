@@ -3,12 +3,14 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/Property/DOS.h"
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
 #include "TBTK/Property/LDOS.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
@@ -21,6 +23,12 @@
 
 unsigned int Calculation::system_length;
 unsigned int Calculation::system_size;
+unsigned int Calculation::energy_points;
+unsigned int Calculation::chebychev_coefficients;
+unsigned int Calculation::max_arnoldi_iterations;
+unsigned int Calculation::num_eigenvals;
+unsigned int Calculation::num_lanczos_vecs;
+double Calculation::energy_bandwidth;
 complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
@@ -91,6 +99,13 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     delta_old = delta;
     symmetry_on = false;
     use_gpu = false;
+    chebychev_coefficients = 1000;
+    energy_points = 2*chebychev_coefficients;
+    energy_bandwidth = 6;
+
+    max_arnoldi_iterations = 4000;
+    num_eigenvals = 30;
+    num_lanczos_vecs = 2*num_eigenvals;
 
     outputFileName = outputfilename + ".hdf5";
 }
@@ -280,11 +295,13 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     // PropertyExtractor::Diagonalizer pe(solver);
     PropertyExtractor::ChebyshevExpander pe(solver);
 
+	pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
+
     delta_old = delta;
     double diff = 0.0;
 
 
-    #pragma omp parallel  num_threads( 4 )
+    #pragma omp parallel // num_threads( 4 )
     #pragma omp for
     for(unsigned int x=0; x < system_size; x++)
     {
@@ -322,10 +339,10 @@ void Calculation::DoScCalc()
 {
     unsigned int max_iterations = 200;
     solver.setModel(model);
-    solver.setScaleFactor(20);
-    solver.setNumCoefficients(4000);
-    solver.setUseLookupTable(false);
-    solver.setCalculateCoefficientsOnGPU(false);
+    solver.setScaleFactor(4*energy_bandwidth);
+    solver.setNumCoefficients(chebychev_coefficients);
+    solver.setUseLookupTable(use_gpu);
+    solver.setCalculateCoefficientsOnGPU(use_gpu);
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
     {
         if(selfConsistencyCallback(solver))
@@ -344,20 +361,10 @@ void Calculation::WriteOutput()
 
     FileWriter::setFileName(outputFileName);
 
-    const double UPPER_BOUND = 4; //10*abs(delta_start);
-	const double LOWER_BOUND = -4; //-10*abs(delta_start);
-	const int RESOLUTION = 2000;
+    const double UPPER_BOUND = energy_bandwidth; //10*abs(delta_start);
+	const double LOWER_BOUND = -1*energy_bandwidth; //-10*abs(delta_start);
+	const int RESOLUTION = energy_points/2;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
-
-
-
-  //Extract DOS and write to file
-	// Property::DOS dos = pe.calculateDOS();
-    // exporter.save(dos, "dos.csv");
-
-	//Extract eigen values and write these to file
-	// Property::EigenValues ev = pe.getEigenValues();
-	// FileWriter::writeEigenValues(ev);
 
 	//Extract LDOS and write to file
 	Property::LDOS ldos = pe.calculateLDOS(
@@ -368,20 +375,81 @@ void Calculation::WriteOutput()
 
 	// exporter.save(ldos, "ldos.csv");
 
-  WriteDelta(0);
+    WriteDelta(0);
 
 
-//   int nr_excited_states = 30;
+    Solver::ArnoldiIterator aSolver;
+    aSolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+    aSolver.setModel(model);
+    aSolver.setCentralValue(0.0);
+    aSolver.setNumEigenValues(num_eigenvals);
+    aSolver.setCalculateEigenVectors(true);
+    aSolver.setNumLanczosVectors(num_lanczos_vecs);
+    aSolver.setMaxIterations(max_arnoldi_iterations);
+    aSolver.run();
 
-//   for(int i = 1; i <= nr_excited_states; i++){
-//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
-//           {{IDX_ALL, IDX_ALL, IDX_ALL}},
-//           {system_size*4+i-nr_excited_states/2}
-//       );
-//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+    PropertyExtractor::ArnoldiIterator ape(aSolver);
 
-//   }
+	ape.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
+	//Extract eigenvalues and write these to file
+	Property::EigenValues ev = ape.getEigenValues();
+	FileWriter::writeEigenValues(ev);
+
+	//Extract DOS and write to file
+	Property::DOS dos = ape.calculateDOS();
+	FileWriter::writeDOS(dos);
+
+// //Extract spin-polarized LDOS and write to file
+// 	Property::SpinPolarizedLDOS spLdos = ape->calculateSpinPolarizedLDOS(
+// 		{IDX_X,		IDX_Y,	IDX_SPIN},
+// 		{system_size, system_size, 4}
+// 	);
+// 	FileWriter::writeSpinPolarizedLDOS(spLdos);
+
+	// Property::WaveFunction wf = ape->calculateWaveFunction(
+	// 	{{IDX_ALL,		SIZE_Y/2,	IDX_ALL}},
+	// 	{NUM_EIGEN_VALUES/2}
+	// );
+	// FileWriter::writeWaveFunction(wf, "WaveFunctionMF");
+
+    // wf = ape->calculateWaveFunction(
+	// 	{{IDX_ALL,		IDX_ALL,	IDX_ALL}},
+	// 	{NUM_EIGEN_VALUES/2}
+	// );
+	// FileWriter::writeWaveFunction(wf, "WaveFunctionMFFull");
+
+    // string wave_fct_text = "WaveFunction_";
+
+    // int nr_excited_states = 30;
+
+    // for(int i = 1; i <= nr_excited_states; i++){
+    //     wf = ape->calculateWaveFunction(
+    //         {{IDX_ALL,		SIZE_Y/2,	IDX_ALL}},
+    //         {NUM_EIGEN_VALUES/2+i}
+    //     );
+    //     FileWriter::writeWaveFunction(wf, "WaveFunction_" + to_string(i));
+
+    //     wf = ape->calculateWaveFunction(
+	// 	{{IDX_ALL,		IDX_ALL,	IDX_ALL}},
+	// 	{NUM_EIGEN_VALUES/2+i}
+    //     );
+    //     FileWriter::writeWaveFunction(wf, wave_fct_text + to_string(i) + "Full");
+    // }
+
+}
+
+Solver::ArnoldiIterator Calculation::runArnoldiIterator()
+{
+        Solver::ArnoldiIterator aSolver;
+        aSolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+        aSolver.setModel(model);
+        aSolver.setCentralValue(0.0);
+        aSolver.setNumEigenValues(num_eigenvals);
+        aSolver.setCalculateEigenVectors(true);
+        aSolver.setNumLanczosVectors(num_lanczos_vecs);
+        aSolver.setMaxIterations(max_arnoldi_iterations);
+        aSolver.run();
 }
 
 void Calculation::WriteDelta(int nr_loop)

@@ -34,7 +34,7 @@ int main(int argc, char **argv){
 
 	for(int vz = 1; vz <= 10; vz++)
 	{
-		string outFile = "vz_" + to_string(vz/10.0);
+		string outFile = "vz_" + to_string(vz/10.0) + "_chebychev";
 		fstream fileStream;
 		fileStream.open(outFile + ".hdf5");
 		if(fileStream.fail())
