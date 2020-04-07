@@ -98,7 +98,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // } 
     delta_old = delta;
     symmetry_on = false;
-    use_gpu = false;
+    use_gpu = true;
     chebychev_coefficients = 1000;
     energy_points = 2*chebychev_coefficients;
     energy_bandwidth = 8;
