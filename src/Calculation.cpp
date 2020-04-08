@@ -129,7 +129,7 @@ void Calculation::InitModel()
 
     //------------------------Nearest neighbour hopping term--------------------------------------
                     //Add hopping parameters corresponding to t
-                    if(x == system_size){
+                    if(x == system_size - 1){
                         model << HoppingAmplitude(-t,	{(x+1)%system_size, y, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,	{x, y, s+2},{(x+1)%system_size, y, s+2}) + HC;
                     }
@@ -139,7 +139,7 @@ void Calculation::InitModel()
                         model << HoppingAmplitude(t,	{(x+1)%system_size, y, s+2},{x, y, s+2}) + HC;
                     }
                     
-                    if(y == system_size){
+                    if(y == system_size - 1){
                         model << HoppingAmplitude(-t,	{x, (y+1)%system_size, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,  {x, y, s+2}, {x, (y+1)%system_size, s+2}) + HC;
                     }
@@ -151,7 +151,7 @@ void Calculation::InitModel()
                     
 
     //---------------------------Zeeman term------------------------------------------
-                    if(x == system_length/2 and  y == system_length/2)
+                    if(x == system_size/2 and  y == system_size/2)
                     {
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s}, {x, y, s});
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
