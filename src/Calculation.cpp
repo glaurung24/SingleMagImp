@@ -96,10 +96,10 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     energy_points = 2*chebychev_coefficients;
     energy_bandwidth = 8;
 
-    max_arnoldi_iterations = 4000;
+    max_arnoldi_iterations = 40000;
     num_eigenvals = 30;
     num_lanczos_vecs = 2*num_eigenvals;
-
+    Streams::out << "@init " << system_size << endl;
     outputFileName = outputfilename + ".hdf5";
 }
 
@@ -232,13 +232,13 @@ void Calculation::InitModel()
                         }
                         model << HoppingAmplitude(-0.0*t,	{x, y, s},	{x, y, s});
                         model << HoppingAmplitude(0.0*t,  {x, y, s+2}, {x, y, s+2});
-                        // cout << "hej x: " << x << ", y: " << y << ", s: " << s << endl;
+                        // Streams::out << "hej x: " << x << ", y: " << y << ", s: " << s << endl;
                     }
                     if(y+1 < system_size) {
                         model << HoppingAmplitude(-t,	{x, y, s},	{x, y+1, s}) + HC;
                         model << HoppingAmplitude(t,  {x, y, s+2}, {x, y+1, s+2}) + HC;
                     }
-                    cout << "ups" << endl;
+                    Streams::out << "ups" << endl;
     //---------------------------Zeeman term------------------------------------------
                     // if(x == 0 and  y == 0)
                     // {
@@ -248,13 +248,14 @@ void Calculation::InitModel()
                 }
             }
         }
-    cout << counter << endl;
+    Streams::out << counter << endl;
     }
     
 
 
 
     model.construct();
+    Streams::out << "@ModelInit " << system_size << endl;
 }
 
 
@@ -265,7 +266,7 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
     unsigned int from_s = from.at(2);
 
 //    if(isnan(real(delta[from_x])) || isnan(imag(delta[from_x])) ) {
-//      cout << "error in " << from_x << endl;
+//      Streams::out << "error in " << from_x << endl;
 //    }
     switch(from_s)
     {
@@ -286,10 +287,11 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
 bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
 {
     // PropertyExtractor::Diagonalizer pe(solver);
+    Streams::out << "@Sc callback before creating solver" << endl;
     PropertyExtractor::ChebyshevExpander pe(solver);
 
 	pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
-
+    Streams::out << "@Sc callback after setting energy window" << endl;
     delta_old = delta;
     double diff = 0.0;
 
@@ -304,7 +306,7 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
         }
     }
 
-
+    Streams::out << "@Sc callback after calculating expectation values" << endl;
     for(unsigned int x=0; x < system_size; x++)
     {
         for(unsigned int y = 0; y < system_size; y++)
@@ -336,14 +338,17 @@ void Calculation::DoScCalc()
     solver.setNumCoefficients(chebychev_coefficients);
     solver.setUseLookupTable(use_gpu);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
+    Streams::out << "@before Sc calc " << system_size << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
     {
+	Streams::out << "in sc loop nr: " << loop_counter << endl;
         if(selfConsistencyCallback(solver))
         {
             break;
         }
     }
 	Streams::out << "finished calc" << endl;
+	Streams::out << "@after Sc calc " << system_size << endl;
 }
 
 void Calculation::WriteOutput()
@@ -370,7 +375,7 @@ void Calculation::WriteOutput()
 
     WriteDelta(0);
 
-
+    Streams::out << "@before arnoldi " << system_size << endl;
     Solver::ArnoldiIterator aSolver;
     aSolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     aSolver.setModel(model);
@@ -380,7 +385,7 @@ void Calculation::WriteOutput()
     aSolver.setNumLanczosVectors(num_lanczos_vecs);
     aSolver.setMaxIterations(max_arnoldi_iterations);
     aSolver.run();
-
+    Streams::out << "@after arnoldi " << system_size << endl;
     PropertyExtractor::ArnoldiIterator ape(aSolver);
 
 	ape.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
