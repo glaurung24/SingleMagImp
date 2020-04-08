@@ -69,14 +69,8 @@ Calculation::~Calculation()
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
     system_length = 10;
-    if(!symmetry_on)
-    {
-        system_size = 2*system_length + 1;
-    }
-    else
-    {
-        system_size = system_length + 1;
-    }
+    system_size = system_length + 1;
+
     
     
     t = 1;
@@ -136,7 +130,7 @@ void Calculation::InitModel()
 
     //------------------------Nearest neighbour hopping term--------------------------------------
                     //Add hopping parameters corresponding to t
-                    if(x == system_length){
+                    if(x == system_size - 1){
                         model << HoppingAmplitude(-t,	{(x+1)%system_size, y, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,	{x, y, s+2},{(x+1)%system_size, y, s+2}) + HC;
                     }
@@ -146,7 +140,7 @@ void Calculation::InitModel()
                         model << HoppingAmplitude(t,	{(x+1)%system_size, y, s+2},{x, y, s+2}) + HC;
                     }
                     
-                    if(y == system_length){
+                    if(y == system_size - 1){
                         model << HoppingAmplitude(-t,	{x, (y+1)%system_size, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,  {x, y, s+2}, {x, (y+1)%system_size, s+2}) + HC;
                     }
@@ -158,7 +152,7 @@ void Calculation::InitModel()
                     
 
     //---------------------------Zeeman term------------------------------------------
-                    if(x == system_length/2 and  y == system_length/2)
+                    if(x == system_size/2 and  y == system_size/2)
                     {
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s}, {x, y, s});
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
@@ -343,6 +337,7 @@ void Calculation::DoScCalc()
     solver.setNumCoefficients(chebychev_coefficients);
     solver.setUseLookupTable(use_gpu);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
+    cout << "@sc calc" << system_size  << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
     {
         if(selfConsistencyCallback(solver))
@@ -365,6 +360,8 @@ void Calculation::WriteOutput()
 	const double LOWER_BOUND = -1*energy_bandwidth; //-10*abs(delta_start);
 	const int RESOLUTION = energy_points/2;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+
+    cout << "@write out" << system_size  << endl;
 
 	//Extract LDOS and write to file
 	Property::LDOS ldos = pe.calculateLDOS(
@@ -457,6 +454,7 @@ void Calculation::WriteDelta(int nr_loop)
     // Exporter exporter;
     // exporter.setFormat(Exporter::Format::ColumnMajor);
     // exporter.save(delta, "delta.csv");
+    cout << "@write out delta" << system_size  << endl;
     FileWriter::setFileName(outputFileName);
     const int RANK = 2;
     int dims[RANK] = {system_size, system_size};
