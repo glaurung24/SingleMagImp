@@ -69,14 +69,7 @@ Calculation::~Calculation()
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
     system_length = 10;
-    if(!symmetry_on)
-    {
-        system_size = 2*system_length + 1;
-    }
-    else
-    {
-        system_size = system_length + 1;
-    }
+    system_size = system_length + 1;
     
     
     t = 1;
@@ -136,7 +129,7 @@ void Calculation::InitModel()
 
     //------------------------Nearest neighbour hopping term--------------------------------------
                     //Add hopping parameters corresponding to t
-                    if(x == system_length){
+                    if(x == system_size){
                         model << HoppingAmplitude(-t,	{(x+1)%system_size, y, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,	{x, y, s+2},{(x+1)%system_size, y, s+2}) + HC;
                     }
@@ -146,7 +139,7 @@ void Calculation::InitModel()
                         model << HoppingAmplitude(t,	{(x+1)%system_size, y, s+2},{x, y, s+2}) + HC;
                     }
                     
-                    if(y == system_length){
+                    if(y == system_size){
                         model << HoppingAmplitude(-t,	{x, (y+1)%system_size, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,  {x, y, s+2}, {x, (y+1)%system_size, s+2}) + HC;
                     }
