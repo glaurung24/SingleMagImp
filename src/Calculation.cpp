@@ -68,7 +68,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 10;
+    system_length = 20;
     system_size = system_length + 1;
     
     
@@ -295,7 +295,7 @@ bool Calculation::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
     delta_old = delta;
     double diff = 0.0;
 
-
+    pe.calculateExpectationValue({0,0, 3},{0, 0, 0}); //dummy call to fix table bug //TODO
     #pragma omp parallel // num_threads( 4 )
     #pragma omp for
     for(unsigned int x=0; x < system_size; x++)
@@ -336,7 +336,7 @@ void Calculation::DoScCalc()
     solver.setModel(model);
     solver.setScaleFactor(4*energy_bandwidth);
     solver.setNumCoefficients(chebychev_coefficients);
-    solver.setUseLookupTable(use_gpu);
+    solver.setUseLookupTable(true);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
     Streams::out << "@before Sc calc " << system_size << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
