@@ -29,7 +29,7 @@ complex<double> Calculation::coupling_potential;
 Calculation::FunctionDelta Calculation::functionDelta;
 Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
-const double Calculation::EPS = 1E-3;
+const double Calculation::EPS = 1E-4;
 const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 
 Array<complex<double>> Calculation::delta;
@@ -59,15 +59,9 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 10;
-    if(!symmetry_on)
-    {
-        system_size = 2*system_length + 1;
-    }
-    else
-    {
-        system_size = system_length + 1;
-    }
+    system_length = 20;
+    system_size = system_length + 1;
+
     
     
     t = 1;
@@ -120,7 +114,7 @@ void Calculation::InitModel()
 
     //------------------------Nearest neighbour hopping term--------------------------------------
                     //Add hopping parameters corresponding to t
-                    if(x == system_length){
+                    if(x == system_size - 1){
                         model << HoppingAmplitude(-t,	{(x+1)%system_size, y, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,	{x, y, s+2},{(x+1)%system_size, y, s+2}) + HC;
                     }
@@ -130,7 +124,7 @@ void Calculation::InitModel()
                         model << HoppingAmplitude(t,	{(x+1)%system_size, y, s+2},{x, y, s+2}) + HC;
                     }
                     
-                    if(y == system_length){
+                    if(y == system_size - 1){
                         model << HoppingAmplitude(-t,	{x, (y+1)%system_size, s},	{x, y, s}) + HC;
                         model << HoppingAmplitude(t,  {x, y, s+2}, {x, (y+1)%system_size, s+2}) + HC;
                     }
@@ -142,7 +136,7 @@ void Calculation::InitModel()
                     
 
     //---------------------------Zeeman term------------------------------------------
-                    if(x == system_length and  y == system_length)
+                    if(x == system_size/2 and  y == system_size/2)
                     {
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s}, {x, y, s});
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
@@ -286,6 +280,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
 
     delta_old = delta;
     double diff = 0.0;
+    pe.setEnergyWindow(-10, 0, 1000);
 
 
     for(unsigned int x=0; x < system_size; x++)
@@ -329,7 +324,7 @@ void Calculation::WriteOutput()
 
   const double UPPER_BOUND = 4; //10*abs(delta_start);
 	const double LOWER_BOUND = -4; //-10*abs(delta_start);
-	const int RESOLUTION = 100000;
+	const int RESOLUTION = 2000;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
@@ -352,16 +347,16 @@ void Calculation::WriteOutput()
   WriteDelta(0);
 
 
-  int nr_excited_states = 30;
+//   int nr_excited_states = 30;
 
-  for(int i = 1; i <= nr_excited_states; i++){
-      Property::WaveFunctions wf = pe.calculateWaveFunctions(
-          {{IDX_ALL, IDX_ALL, IDX_ALL}},
-          {system_size*4+i-nr_excited_states/2}
-      );
-      FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+//   for(int i = 1; i <= nr_excited_states; i++){
+//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
+//           {{IDX_ALL, IDX_ALL, IDX_ALL}},
+//           {system_size*4+i-nr_excited_states/2}
+//       );
+//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
 
-  }
+//   }
 
 }
 
