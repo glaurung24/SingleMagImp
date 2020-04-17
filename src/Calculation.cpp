@@ -338,6 +338,7 @@ void Calculation::DoScCalc()
     solver.setNumCoefficients(chebychev_coefficients);
     solver.setUseLookupTable(true);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
+    solver.setBroadening(0);
     Streams::out << "@before Sc calc " << system_size << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
     {
