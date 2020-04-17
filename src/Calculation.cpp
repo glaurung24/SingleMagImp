@@ -92,7 +92,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     delta_old = delta;
     symmetry_on = false;
     use_gpu = true;
-    chebychev_coefficients = 1000;
+    chebychev_coefficients = 10000;
     energy_points = 2*chebychev_coefficients;
     energy_bandwidth = 8;
 
@@ -338,7 +338,6 @@ void Calculation::DoScCalc()
     solver.setNumCoefficients(chebychev_coefficients);
     solver.setUseLookupTable(true);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
-    solver.setBroadening(0);
     Streams::out << "@before Sc calc " << system_size << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_iterations; loop_counter++)
     {
