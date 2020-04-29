@@ -76,7 +76,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     mu = -0.5; //-1.1, 2.5
     
     delta_start = 0.551213123012; //0.0358928467732;
-    Vz = vz_input*delta_start/10.0;
+    Vz = vz_input;
     coupling_potential = 2.5; //2.0, 1.5
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
 
