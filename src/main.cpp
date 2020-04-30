@@ -32,7 +32,7 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int vz = 0; vz <= 20; vz++)
+	for(int vz = 1; vz <= 20; vz++)
 	{
 		string outFile = "vz_" + to_string(vz/2.0) + "_chebychev_GPUsize20";
 		fstream fileStream;
