@@ -34,7 +34,7 @@ int main(int argc, char **argv){
 
 	for(int vz = 0; vz <= 40; vz++)
 	{
-		string outFile = "vz_" + to_string(vz/1.0) + "_diag_size21";
+		string outFile = "vz_" + to_string(vz/4.0) + "_diag_size21";
 		fstream fileStream;
 		fileStream.open(outFile + ".hdf5");
 		if(fileStream.fail())

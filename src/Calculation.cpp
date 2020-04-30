@@ -139,7 +139,7 @@ void Calculation::InitModel()
                     if(x == system_size/2 and  y == system_size/2)
                     {
                         model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s}, {x, y, s});
-                        model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
+                        model << HoppingAmplitude(-Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
                     }
                 }
             }
