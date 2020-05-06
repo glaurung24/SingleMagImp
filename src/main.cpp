@@ -34,12 +34,13 @@ int main(int argc, char **argv){
 
 	for(int vz = 0; vz <= 40; vz++)
 	{
-		string outFile = "vz_" + to_string(vz/4.0) + "_diag_size21";
+		double Vz = vz/4.0;
+		string outFile = "vz_" + to_string(Vz) + "_diag_size21";
 		fstream fileStream;
 		fileStream.open(outFile + ".hdf5");
 		if(fileStream.fail())
       	{
-			Calculation calc(outFile, complex<double>(vz));
+			Calculation calc(outFile, complex<double>(Vz));
 			calc.InitModel();
 			calc.DoScCalc();
 			calc.WriteOutput();
