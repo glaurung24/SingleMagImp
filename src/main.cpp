@@ -34,12 +34,13 @@ int main(int argc, char **argv){
 
 	for(int vz = 1; vz <= 20; vz++)
 	{
-		string outFile = "vz_" + to_string(vz/2.0) + "_chebychev_GPUsize20";
+		double Vz = vz/2.0;
+		string outFile = "vz_" + to_string(Vz) + "_chebychev_GPUsize20";
 		fstream fileStream;
 		fileStream.open(outFile + ".hdf5");
 		if(fileStream.fail())
       	{
-			Calculation calc(outFile, complex<double>(vz));
+			Calculation calc(outFile, complex<double>(Vz));
 			calc.InitModel();
 			calc.DoScCalc();
 			calc.WriteOutput();
