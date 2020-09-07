@@ -59,7 +59,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 20;
+    system_length = 30;
     system_size = system_length + 1;
 
     
@@ -67,20 +67,22 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     t = 1;
     mu = -0.5; //-1.1, 2.5
     
-    delta_start = 0.551213123012; //0.0358928467732;
+    delta_start = 0; // 0.001; // 0.103229725288; //0.551213123012; //0.0358928467732;
     Vz = vz_input;
-    coupling_potential = 2.5; //2.0, 1.5
+    // A coupling potential of 2.5 gives a delta of 0.551213123012
+    // A coupling potential of 1.475 gives a delta of 0.103229725288
+    coupling_potential = 0; //1.475; //2.0, 1.5 //TODO change back!!!
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
 
-    // // //Put random distribution into delta
-    // srand((unsigned)time(0)); 
+     // //Put random distribution into delta
+     srand((unsigned)time(0)); 
      
-    // for(unsigned int i=0; i<system_size; i++){ 
-    //     for(unsigned int j=0; j<system_size; j++){
-    //     delta[{i, j}] = (complex<double>((rand()%100)+1) + complex<double>((rand()%100)+1)*I)*delta_start/1000.0; 
-         
-    //     }
-    // } 
+    for(unsigned int i=0; i<system_size; i++){ 
+       for(unsigned int j=0; j<system_size; j++){
+        delta[{i, j}] = (complex<double>((rand()%100)+1) + complex<double>((rand()%100)+1)*I)*delta_start/1000.0; 
+        
+        }
+    } 
     delta_old = delta;
     symmetry_on = false;
     use_gpu = false;
@@ -275,6 +277,7 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
 
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 {
+    return true; //TODO
     PropertyExtractor::Diagonalizer pe(solver);
     // PropertyExtractor::ChebyshevExpander pe(solver);
 

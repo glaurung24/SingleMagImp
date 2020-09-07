@@ -32,10 +32,10 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int vz = 0; vz <= 40; vz++)
+	for(int vz = 0; vz <= 33; vz++)
 	{
-		double Vz = vz/4.0;
-		string outFile = "vz_" + to_string(Vz) + "_diag_size21";
+		double Vz = vz/5.0;
+		string outFile = "vz_" + to_string(Vz) + "_diag_size21_normalState";
 		fstream fileStream;
 		fileStream.open(outFile + ".hdf5");
 		if(fileStream.fail())
@@ -46,6 +46,20 @@ int main(int argc, char **argv){
 			calc.WriteOutput();
 		}
 	}
+
+	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
+	// // {
+	// 	string outFile = "coupling_" + to_string(coupling) + "_diag_size21";
+	// 	fstream fileStream;
+	// 	fileStream.open(outFile + ".hdf5");
+	// 	if(fileStream.fail())
+    //   	{
+	// 		Calculation calc(outFile, coupling);
+	// 		calc.InitModel();
+	// 		calc.DoScCalc();
+	// 		calc.WriteOutput();
+	// 	}
+	// // }
 
 
 
