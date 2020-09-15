@@ -40,6 +40,7 @@ class Calculation
         void WriteDelta(int);
         Array<double> GetRealVec(Array<complex<double>>);
         Array<double> GetImagVec(Array<complex<double>> );
+        Array<complex<double>> CalculateChargeDensity(unsigned int);
 
         class FunctionDelta : 
         public HoppingAmplitude::AmplitudeCallback

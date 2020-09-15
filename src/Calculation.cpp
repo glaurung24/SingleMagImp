@@ -349,6 +349,15 @@ void Calculation::WriteOutput()
 
   WriteDelta(0);
 
+  for(unsigned int spin = 0; spin < 4; spin++ )
+  {
+    string propertyname = "chargeDensity_spin_" + to_string(spin);
+    const int dims[2] = {system_size, system_size};
+    Array<complex<double>> charge = CalculateChargeDensity(spin);
+    FileWriter::write(charge.getData().getData(), 2, dims, propertyname);
+  }
+
+
 
 //   int nr_excited_states = 30;
 
@@ -388,6 +397,22 @@ Array<double> Calculation::GetRealVec(Array<complex<double>> input)
     }
     return output;
 }
+
+Array<complex<double>> Calculation::CalculateChargeDensity(unsigned int spin)
+{
+    PropertyExtractor::Diagonalizer pe(solver);
+    pe.setEnergyWindow(-10, 0, 1000);
+    Array<complex<double>> charge({system_size, system_size});
+    for(unsigned int x=0; x < system_size; x++)
+    {
+        for(unsigned int y = 0; y < system_size; y++)
+        {
+            charge[{x , y}] = pe.calculateExpectationValue({x,y, spin},{x, y, spin});
+        }
+    }
+    return charge;
+}
+
 
 Array<double> Calculation::GetImagVec(Array<complex<double>> input)
 {
