@@ -40,7 +40,8 @@ filenamebase = "vz_"
 #figure_extension =  "_diag"
 
 results_dir = "" # "kebnekaiseResults/"
-extension = "_diag_size21_normalState.hdf5" #"_chebychev_GPUsize20.hdf5"
+extension_sc = "_diag_size21.hdf5"
+extension_normal = "_diag_size21_normalState.hdf5" 
 figure_extension =  "_diagDelta0_1_normalState"
 
 sigma = 0.2
@@ -54,43 +55,45 @@ vz_points = []
 
 text_pos = [1,1]
 
-interesting_vz_values = [0, 1.0, 1.75]
+interesting_vz_values = [0, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+#interesting_vz_values = np.arange(0.0, 10.1, 0.0625)
 
 delta_fig_x, delta_ax_x = plt.subplots()
 delta_fig_xy, delta_ax_xy = plt.subplots()
-ldos_fig_xy, ldos_ax_xy = plt.subplots()
+ldos_normal_fig, ldos_normal_ax = plt.subplots()
 
-for vz in np.arange(0.0, 10.1, 0.0025):
+
+for vz in np.arange(0.0, 10.1, 0.0625):
     vz_format = "{:.6f}".format(vz)
-    fName = filenamebase + vz_format + extension
-    if os.path.exists(results_dir + fName) and vz in interesting_vz_values:
+    fName_sc = filenamebase + vz_format + extension_sc
+    fName_normal = filenamebase + vz_format + extension_normal
+    if os.path.exists(results_dir + fName_normal) and os.path.exists(results_dir + fName_sc) and \
+    vz in interesting_vz_values:
+        
         
         vz_points.append(vz)
 
-        filename = results_dir + fName
+        filename_sc = results_dir + fName_sc
+        filename_normal = results_dir + fName_normal
         
-        file = h5py.File(filename, 'r');
-        dataset = file['LDOS']
+        file_sc = h5py.File(filename_sc, 'r');
+        file_normal = h5py.File(filename_normal, 'r');
+        dataset_sc = file_sc['LDOS']
+        dataset_normal = file_normal['LDOS']
         
         vz_format += figure_extension
+
         
         
-        eigenvals = file["EigenValues"][:]
-        
-        positive_energies = np.sort(abs(eigenvals))
-        
-        Eg = positive_energies[2]
-        
-        
-        data_dimensions = dataset.shape
+        data_dimensions = dataset_sc.shape
         y_plane = int(np.floor(data_dimensions[1]/2))
         physical_dimensions = len(data_dimensions) - 1 #Last dimensions are for energy.
         energy_resolution = data_dimensions[physical_dimensions];
-        limits = dataset.attrs['UpLowLimits']
+        limits = dataset_sc.attrs['UpLowLimits']
         
         
-        datasetDeltaReal = file['deltaReal0']
-        datasetDeltaImag = file['deltaImag0']
+        datasetDeltaReal = file_sc['deltaReal0']
+        datasetDeltaImag = file_sc['deltaImag0']
         delta = np.array(datasetDeltaReal)
         
         
@@ -102,7 +105,137 @@ for vz in np.arange(0.0, 10.1, 0.0025):
         x = np.arange(0, data_dimensions[0], 1)
         y = np.arange(limits[1], limits[0], (limits[0] - limits[1])/energy_resolution)
         energies = y
-        X, Y = np.meshgrid(x, y)
+        X, Y = np.meshgrid(x, x)
+
+        energy_range = delta_bulk *1.0
+        middle_energies = np.logical_and(energies>=-energy_range, energies<=energy_range)
+        
+        dos_fermi = np.zeros((size_x, size_x))
+        
+        for x_pos in x:
+            for y_pos in x:
+                dos_fermi[x_pos, y_pos] = np.sum(dataset_normal[x_pos, y_pos, :][middle_energies])/np.sum(middle_energies)
+                
+        dos_fermi_normal_fig, dos_fermi_normal_ax = plt.subplots()
+        
+        cs = dos_fermi_normal_ax.contourf(X.transpose(), Y.transpose(), dos_fermi) #, cmap=matplotlib.cm.coolwarm)
+        dos_fermi_normal_ax.contour(cs, colors='k', linewidths=0.2)
+
+        
+        cbar = dos_fermi_normal_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$N_0$')
+        
+        dos_fermi_normal_ax.set_xlabel(r'$x$')
+        dos_fermi_normal_ax.set_ylabel(r'$y$')
+        dos_fermi_normal_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        dos_fermi_normal_fig.savefig("figures/dos" + vz_format + ".png")
+        
+        plt.figure()
+        dos_xy = []
+        for i in range(len(x)):
+            dos_xy.append(dos_fermi[i,i])
+        plt.plot(x, dos_xy)
+        plt.savefig("figures/dos_xy_vz_" + vz_format +  ".png")
+        plt.close()
+        
+        plt.figure()
+        plt.plot(x, dos_fermi[:,y_plane])
+        plt.savefig("figures/dos_x_vz_" + vz_format +  ".png")
+        plt.close()
+        
+        ratio = delta/dos_fermi
+        
+        ratio_fig, ratio_ax = plt.subplots()
+        
+        cs = ratio_ax.contourf(X.transpose(), Y.transpose(), ratio) #, cmap=matplotlib.cm.coolwarm)
+        ratio_ax.contour(cs, colors='k', linewidths=0.2)
+
+        
+        cbar = ratio_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$\frac{\Delta}{N_0}$')
+        
+        ratio_ax.set_xlabel(r'$x$')
+        ratio_ax.set_ylabel(r'$y$')
+        ratio_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        ratio_fig.savefig("figures/ratio" + vz_format + ".png")
+        
+        
+        sub_zero_energies = energies<= 0
+        
+        charge_density = np.zeros((size_x, size_x))
+        
+        for x_pos in x:
+            for y_pos in x:
+                charge_density[x_pos, y_pos] = np.sum(dataset_normal[x_pos, y_pos, :][sub_zero_energies])
+                
+                
+        charge_fermi_normal_fig, charge_fermi_normal_ax = plt.subplots()
+        
+        cs = charge_fermi_normal_ax.contourf(X.transpose(), Y.transpose(), dos_fermi) #, cmap=matplotlib.cm.coolwarm)
+        charge_fermi_normal_ax.contour(cs, colors='k', linewidths=0.2)
+
+        
+        cbar = charge_fermi_normal_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$N_0$')
+        
+        charge_fermi_normal_ax.set_xlabel(r'$x$')
+        charge_fermi_normal_ax.set_ylabel(r'$y$')
+        charge_fermi_normal_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        charge_fermi_normal_fig.savefig("figures/charge" + vz_format + ".png")
+        
+        ratio = delta/dos_fermi
+        
+        ratio_fig, ratio_ax = plt.subplots()
+        
+        cs = ratio_ax.contourf(X.transpose(), Y.transpose(), ratio) #, cmap=matplotlib.cm.coolwarm)
+        ratio_ax.contour(cs, colors='k', linewidths=0.2)
+
+        
+        cbar = ratio_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$\frac{\Delta}{N_0}$')
+        
+        ratio_ax.set_xlabel(r'$x$')
+        ratio_ax.set_ylabel(r'$y$')
+        ratio_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        ratio_fig.savefig("figures/ratio" + vz_format + ".png")
+        
+        product = delta*dos_fermi
+        
+        product_fig, product_ax = plt.subplots()
+        
+        cs = product_ax.contourf(X.transpose(), Y.transpose(), product) #, cmap=matplotlib.cm.coolwarm)
+        product_ax.contour(cs, colors='k', linewidths=0.2)
+        
+
+
+        
+        cbar = product_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$\frac{\Delta}{N_0}$')
+        
+        product_ax.set_xlabel(r'$x$')
+        product_ax.set_ylabel(r'$y$')
+        product_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        product_fig.savefig("figures/product" + vz_format + ".png")
+        
+        product = delta*charge_density
+        
+        product_fig, product_ax = plt.subplots()
+        
+        cs = product_ax.contourf(X.transpose(), Y.transpose(), product) #, cmap=matplotlib.cm.coolwarm)
+        product_ax.contour(cs, colors='k', linewidths=0.2)
+        
+
+
+        
+        cbar = product_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$\frac{\Delta}{N_0}$')
+        
+        product_ax.set_xlabel(r'$x$')
+        product_ax.set_ylabel(r'$y$')
+        product_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        product_fig.savefig("figures/product_charge" + vz_format + ".png")
+        
+        
         
 
         delta_ax_x.plot(x, delta[:,y_plane], label=r'$V_Z = $' + str(vz) )
@@ -114,7 +247,7 @@ for vz in np.arange(0.0, 10.1, 0.0025):
         delta_ax_xy.plot(x, delta_xy, label=r'$V_Z = $' + str(vz))
         
         
-        Z1 = dataset[y_plane, y_plane, :]
+        Z1 = dataset_normal[y_plane, y_plane, :]
         signal = Z1[: int(data_dimensions[2]/2)]
 
 
@@ -127,7 +260,7 @@ for vz in np.arange(0.0, 10.1, 0.0025):
         spline = interpolate.splrep(y, Z1, k=1)
         ldos_new = interpolate.splev(xnew, spline)
         ldos_new = scipy.ndimage.filters.gaussian_filter1d(ldos_new, sigma_discrete_units)
-        ldos_ax_xy.plot(xnew/delta_bulk, ldos_new, label=r'$V_Z = $' + str(vz))
+        ldos_normal_ax.plot(xnew, ldos_new, label=r'$V_Z = $' + str(vz))
 #        plt.plot(y[peaks[-1]], Z1[peaks[-1]], 'x')
 #        
         lim = np.max(Z1)*1.2
@@ -149,9 +282,10 @@ delta_ax_xy.legend(loc='lower left')
 delta_ax_xy.set_xlim([0,30])
 delta_fig_xy.savefig("figures/delta_profile_compare_xy.png")
 
-ldos_ax_xy.set_xlabel(r'$E\,/\,\Delta$')
-ldos_ax_xy.set_ylabel(r'LDOS')
-ldos_ax_xy.legend(loc='upper left')
-ldos_ax_xy.set_xlim([-2, 2])
-ldos_fig_xy.savefig("figures/LDOS_compare.png")
+ldos_normal_ax.set_xlabel(r'$E$')
+ldos_normal_ax.set_ylabel(r'LDOS')
+ldos_normal_ax.legend(loc='upper left')
+ldos_normal_ax.set_xlim([-2*delta_bulk, 2*delta_bulk])
+ldos_normal_ax.set_ylim([-0.5, 10])
+ldos_normal_fig.savefig("figures/LDOS_compare_normal.png")
 

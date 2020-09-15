@@ -32,9 +32,9 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int vz = 0; vz <= 33; vz++)
+	for(int vz = 0; vz <= 120; vz++)
 	{
-		double Vz = vz/5.0;
+		double Vz = vz/16.0;
 		string outFile = "vz_" + to_string(Vz) + "_diag_size21_normalState";
 		fstream fileStream;
 		fileStream.open(outFile + ".hdf5");
