@@ -55,7 +55,7 @@ vz_points = []
 
 text_pos = [1,1]
 
-interesting_vz_values = [0, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+interesting_vz_values = [0, 0.5, 1.0, 1.5, 1.75, 2.0]#[0, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 #interesting_vz_values = np.arange(0.0, 10.1, 0.0625)
 
 delta_fig_x, delta_ax_x = plt.subplots()
@@ -80,6 +80,11 @@ for vz in np.arange(0.0, 10.1, 0.0625):
         file_normal = h5py.File(filename_normal, 'r');
         dataset_sc = file_sc['LDOS']
         dataset_normal = file_normal['LDOS']
+        
+        dataset_charge_spin0 = file_normal['chargeDensity_spin_0Real']
+        dataset_charge_spin1 = file_normal['chargeDensity_spin_1Real']
+        dataset_charge_spin2 = file_normal['chargeDensity_spin_2Real']
+        dataset_charge_spin3 = file_normal['chargeDensity_spin_3Real']
         
         vz_format += figure_extension
 
@@ -159,29 +164,53 @@ for vz in np.arange(0.0, 10.1, 0.0625):
         ratio_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
         ratio_fig.savefig("figures/ratio" + vz_format + ".png")
         
+
         
-        sub_zero_energies = energies<= 0
-        
-        charge_density = np.zeros((size_x, size_x))
-        
-        for x_pos in x:
-            for y_pos in x:
-                charge_density[x_pos, y_pos] = np.sum(dataset_normal[x_pos, y_pos, :][sub_zero_energies])
+        charge_density = np.array(dataset_charge_spin0) + np.array(dataset_charge_spin1)
                 
                 
         charge_fermi_normal_fig, charge_fermi_normal_ax = plt.subplots()
         
-        cs = charge_fermi_normal_ax.contourf(X.transpose(), Y.transpose(), dos_fermi) #, cmap=matplotlib.cm.coolwarm)
+        cs = charge_fermi_normal_ax.contourf(X.transpose(), Y.transpose(), charge_density) #, cmap=matplotlib.cm.coolwarm)
         charge_fermi_normal_ax.contour(cs, colors='k', linewidths=0.2)
 
         
         cbar = charge_fermi_normal_fig.colorbar(cs)
-        cbar.ax.set_ylabel(r'$N_0$')
+        cbar.ax.set_ylabel(r'$\rho_{el}$')
         
         charge_fermi_normal_ax.set_xlabel(r'$x$')
         charge_fermi_normal_ax.set_ylabel(r'$y$')
         charge_fermi_normal_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
         charge_fermi_normal_fig.savefig("figures/charge" + vz_format + ".png")
+        
+        charge_fermi_normal_xy_fig, charge_fermi_xy_normal_ax = plt.subplots()
+        charge_xy = []
+        delta_xy = []
+        for i in range(len(x)):
+            charge_xy.append(charge_density[i,i])
+            delta_xy.append(delta[i,i])
+        charge_xy = np.array(charge_xy)
+        delta_xy = np.array(delta_xy)
+        charge_fermi_xy_normal_ax.plot(x, charge_xy, label=r'$\rho_{el}$')
+        charge_fermi_xy_normal_ax.set_xlabel(r'$xy$')
+        charge_fermi_xy_normal_ax.set_ylabel(r'$\rho_{el}$')
+        delta_xy_ax = charge_fermi_xy_normal_ax.twinx()
+        delta_xy_ax.plot(x, delta_xy, color="r", label=r'$\Delta$')
+        delta_xy_ax.set_ylabel(r'$\Delta$')
+        ratio_xy_ax = charge_fermi_xy_normal_ax.twinx()
+        ratio_xy_ax.plot(x, delta_xy/charge_xy, color="k", label=r'$\frac{\Delta}{\rho_{el}}$')
+        ratio_xy_ax.set_ylabel(r'$\frac{\Delta}{\rho_{el}}$')
+        prod_xy_ax = charge_fermi_xy_normal_ax.twinx()
+        prod_xy_ax.plot(x, delta_xy*charge_xy, color="g", label=r'$\Delta \rho_{el}$')
+        prod_xy_ax.set_ylabel(r'$\Delta \rho_{el}$')
+        charge_fermi_normal_xy_fig.legend()
+        charge_fermi_normal_xy_fig.savefig("figures/charge_xy_vz_" + vz_format +  ".png")
+        
+        charge_fermi_normal_x_fig, charge_fermi_x_normal_ax = plt.subplots()
+        charge_fermi_x_normal_ax.plot(x, charge_density[y_plane,:])
+        charge_fermi_x_normal_ax.set_xlabel(r'$x$')
+        charge_fermi_x_normal_ax.set_ylabel(r'$\rho_{el}$')
+        charge_fermi_normal_x_fig.savefig("figures/charge_x_vz_" + vz_format +  ".png")
         
         ratio = delta/dos_fermi
         
@@ -217,6 +246,23 @@ for vz in np.arange(0.0, 10.1, 0.0625):
         product_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
         product_fig.savefig("figures/product" + vz_format + ".png")
         
+        
+        ratio = delta/charge_density
+        
+        ratio_fig, ratio_ax = plt.subplots()
+        
+        cs = ratio_ax.contourf(X.transpose(), Y.transpose(), ratio) #, cmap=matplotlib.cm.coolwarm)
+        ratio_ax.contour(cs, colors='k', linewidths=0.2)
+
+        
+        cbar = ratio_fig.colorbar(cs)
+        cbar.ax.set_ylabel(r'$\frac{\Delta}{\rho_{el}}$')
+        
+        ratio_ax.set_xlabel(r'$x$')
+        ratio_ax.set_ylabel(r'$y$')
+        ratio_ax.text(text_pos[0], text_pos[1], r'$V_Z =$ ' + str(vz))
+        ratio_fig.savefig("figures/ratio_chargedensity" + vz_format + ".png")
+        
         product = delta*charge_density
         
         product_fig, product_ax = plt.subplots()
@@ -228,7 +274,7 @@ for vz in np.arange(0.0, 10.1, 0.0625):
 
         
         cbar = product_fig.colorbar(cs)
-        cbar.ax.set_ylabel(r'$\frac{\Delta}{N_0}$')
+        cbar.ax.set_ylabel(r'$\Delta \rho_{el}$')
         
         product_ax.set_xlabel(r'$x$')
         product_ax.set_ylabel(r'$y$')

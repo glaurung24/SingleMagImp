@@ -12,6 +12,7 @@
 #include "TBTK/FileWriter.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
+#include "TBTK/FileReader.h"
 
 #include <complex>
 #include<math.h>
@@ -67,11 +68,11 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     t = 1;
     mu = -0.5; //-1.1, 2.5
     
-    delta_start = 0; // 0.001; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.103229725288; //0.551213123012; //0.0358928467732;
     Vz = vz_input;
     // A coupling potential of 2.5 gives a delta of 0.551213123012
     // A coupling potential of 1.475 gives a delta of 0.103229725288
-    coupling_potential = 0; //1.475; //2.0, 1.5 //TODO change back!!!
+    coupling_potential = 1.475; //2.0, 1.5 //TODO change back!!!
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
 
      // //Put random distribution into delta
@@ -88,6 +89,39 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     use_gpu = false;
 
     outputFileName = outputfilename + ".hdf5";
+}
+
+void Calculation::readDelta(int nr_sc_loop, string filename = "")
+{
+    stringstream loopFileNameReal;
+
+    if(nr_sc_loop < 10)
+    {
+        loopFileNameReal << "deltaReal" << nr_sc_loop;
+    }
+    else
+    {
+        loopFileNameReal << "deltaReal" << nr_sc_loop;
+    }
+    
+
+    if(filename == "")
+    {
+        filename = outputFileName;
+    }
+
+    
+    FileReader::setFileName(filename);
+    double* delta_real_from_file = nullptr;
+    int rank;
+    int* dims;
+    FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
+    
+
+    delta = ConvertVectorToArray(delta_real_from_file, system_size, system_size);
+    delta_old = delta;  
+    delete [] dims;
+    delete [] delta_real_from_file;
 }
 
 
@@ -277,7 +311,7 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
 
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 {
-    return true; //TODO
+//    return true; //TODO
     PropertyExtractor::Diagonalizer pe(solver);
     // PropertyExtractor::ChebyshevExpander pe(solver);
 
@@ -452,4 +486,18 @@ void Calculation::setOutputFileName(string input)
 void Calculation::setcoupling_potential(complex<double> input)
 {
   coupling_potential = input;
+}
+
+Array<complex<double>> Calculation::ConvertVectorToArray(const double *input, unsigned int sizeX, unsigned int sizeY)
+{
+    Array<complex<double>> out = Array<complex<double>>({sizeX, sizeX}, 0);
+    
+    for(unsigned int i=0; i < sizeX; i++)
+    {
+        for(unsigned int j=0; j < sizeY; j++)
+        {
+            out[{i,j}] = input[j+i*sizeY];
+        }
+    }
+    return out;
 }

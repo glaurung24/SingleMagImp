@@ -32,18 +32,30 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int vz = 0; vz <= 120; vz++)
+	for(int mu = -8; mu <= 8; mu++)
 	{
-		double Vz = vz/16.0;
-		string outFile = "vz_" + to_string(Vz) + "_diag_size21_normalState";
-		fstream fileStream;
-		fileStream.open(outFile + ".hdf5");
-		if(fileStream.fail())
-      	{
-			Calculation calc(outFile, complex<double>(Vz));
-			calc.InitModel();
-			calc.DoScCalc();
-			calc.WriteOutput();
+		string old_outFile = "";
+		string outFile;
+		for(int vz = 0; vz <= 32; vz++)
+		{
+			double Vz = vz/16.0;
+			double Mu = mu/2.0;
+			outFile = "vz_" + to_string(Vz) + "mu_" + to_string(Mu) + "_normalState_diag_size21";
+			fstream fileStream;
+			fileStream.open(outFile + ".hdf5");
+			if(fileStream.fail())
+			{
+				Calculation calc(outFile, complex<double>(Vz));
+				calc.setMu(Mu);
+				if(old_outFile != "")
+				{
+					calc.readDelta(0, old_outFile + ".hdf5");
+				}
+				calc.InitModel();
+				calc.DoScCalc();
+				calc.WriteOutput();
+			}
+			old_outFile = outFile;
 		}
 	}
 
