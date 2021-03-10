@@ -315,6 +315,8 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     PropertyExtractor::Diagonalizer pe(solver);
     // PropertyExtractor::ChebyshevExpander pe(solver);
 
+    return true;
+
     delta_old = delta;
     double diff = 0.0;
     pe.setEnergyWindow(-10, 0, 1000);

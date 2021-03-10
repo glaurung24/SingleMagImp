@@ -32,7 +32,7 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int mu = -8; mu <= 8; mu++)
+	for(int mu = 4; mu <= 8; mu++)
 	{
 		string old_outFile = "";
 		string outFile;
@@ -40,7 +40,7 @@ int main(int argc, char **argv){
 		{
 			double Vz = vz/16.0;
 			double Mu = mu/2.0;
-			outFile = "vz_" + to_string(Vz) + "mu_" + to_string(Mu) + "_normalState_diag_size21";
+			outFile = "vz_" + to_string(Vz) + "mu_" + to_string(Mu) + "_diag_size21" + "_nosc";
 			fstream fileStream;
 			fileStream.open(outFile + ".hdf5");
 			if(fileStream.fail())
