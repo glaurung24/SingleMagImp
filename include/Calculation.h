@@ -24,9 +24,11 @@ class Calculation
         void Init(string outputfilename, complex<double> vz_input = 0.0);
         void InitModel();
         void DoScCalc();
+        void DoCalc();
         void WriteOutput();
         void setVz(complex<double>);
         void setMu(complex<double>);
+        void setPhase(double);
         void setOutputFileName(string);
         void setcoupling_potential(complex<double>);
         void AddDefects(int);
@@ -51,6 +53,14 @@ class Calculation
             
         };
         static FunctionDelta functionDelta;
+
+        class FunctionDeltaProbe : 
+        public HoppingAmplitude::AmplitudeCallback
+        {
+                complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
+            
+        };
+        static FunctionDeltaProbe functionDeltaProbe;
         
         class SelfConsistencyCallback :
         public Solver::Diagonalizer::SelfConsistencyCallback
@@ -64,9 +74,15 @@ class Calculation
         static unsigned int system_length;
         static unsigned int system_size;
         static complex<double> mu;
+        static complex<double> mu_probe;
         static complex<double> Vz;
         static complex<double> t;
+        static complex<double> t_probe;
+        static complex<double> t_probe_sample;
+        static double phase;
+        static unsigned int proble_length;
         static complex<double> delta_start;
+        static complex<double> delta_probe;
         static complex<double> coupling_potential;
 
         static const complex<double> I;
@@ -81,6 +97,7 @@ class Calculation
 
         bool symmetry_on;
         bool use_gpu;
+        bool model_tip;
 
 
         Model model;

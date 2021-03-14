@@ -25,6 +25,7 @@
 #include "TBTK/Streams.h"
 #include "Calculation.h"
 #include <iostream>
+#include <math.h>
 
 using namespace std;
 using namespace TBTK;
@@ -32,31 +33,37 @@ using namespace TBTK;
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int mu = 4; mu <= 8; mu++)
-	{
-		string old_outFile = "";
+	// for(int mu = 0; mu <= 8; mu++)
+	// {
+		// string old_outFile = "";
 		string outFile;
 		for(int vz = 0; vz <= 32; vz++)
 		{
-			double Vz = vz/16.0;
-			double Mu = mu/2.0;
-			outFile = "vz_" + to_string(Vz) + "mu_" + to_string(Mu) + "_diag_size21" + "_nosc";
-			fstream fileStream;
-			fileStream.open(outFile + ".hdf5");
-			if(fileStream.fail())
-			{
-				Calculation calc(outFile, complex<double>(Vz));
-				calc.setMu(Mu);
-				if(old_outFile != "")
+			unsigned int nr_phase = 32;
+			for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+				double Vz = vz/16.0;
+				// double Mu = mu/2.0;
+				double phase = phase_calc/nr_phase*M_PI;
+				outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_"  + to_string(phase) + "_diag_size21" + "_nosc";
+				fstream fileStream;
+				fileStream.open(outFile + ".hdf5");
+				if(fileStream.fail())
 				{
-					calc.readDelta(0, old_outFile + ".hdf5");
+					Calculation calc(outFile, complex<double>(Vz));
+					// calc.setMu(Mu);
+					// if(old_outFile != "")
+					// {
+					// 	calc.readDelta(0, old_outFile + ".hdf5");
+					// }
+					calc.setPhase(phase);
+					calc.InitModel();
+					// calc.DoScCalc();
+					calc.DoCalc();
+					calc.WriteOutput();
 				}
-				calc.InitModel();
-				calc.DoScCalc();
-				calc.WriteOutput();
 			}
-			old_outFile = outFile;
-		}
+			// old_outFile = outFile;
+		// }
 	}
 
 	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
