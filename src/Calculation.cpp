@@ -95,7 +95,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
      
     for(unsigned int i=0; i<system_size; i++){ 
        for(unsigned int j=0; j<system_size; j++){
-        delta[{i, j}] = (complex<double>((rand()%100)+1) + complex<double>((rand()%100)+1)*I)*delta_start/1000.0; 
+        delta[{i, j}] = (complex<double>((rand()%100)+1) + complex<double>((rand()%100)+1)*I)*delta_start; 
         
         }
     } 
