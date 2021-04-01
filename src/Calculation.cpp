@@ -3,12 +3,14 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/Property/DOS.h"
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
 #include "TBTK/Property/LDOS.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/FileWriter.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
@@ -29,7 +31,7 @@ complex<double> Calculation::coupling_potential;
 complex<double> Calculation::t_probe;
 complex<double> Calculation::t_probe_sample;
 double Calculation::phase;
-unsigned int Calculation::proble_length;
+unsigned int Calculation::probe_length;
 complex<double> Calculation::delta_probe;
 complex<double> Calculation::mu_probe;
 
@@ -44,6 +46,7 @@ Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
 
 Solver::Diagonalizer Calculation::solver;
+Solver::ArnoldiIterator Calculation::Asolver;
 // Solver::ChebyshevExpander Calculation::solver;
 
 string Calculation::outputFileName = "";
@@ -70,20 +73,19 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     system_length = 30;
     system_size = system_length + 1;
 
-    proble_length = 10;
+    probe_length = 10;
 
-    
+    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
     t_probe = t;
-    t_probe_sample = 0.01*t;
+    t_probe_sample = 0.9*t;
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
-
     model_tip = true;
     
-    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+
     Vz = vz_input;
     // A coupling potential of 2.5 gives a delta of 0.551213123012
     // A coupling potential of 1.475 gives a delta of 0.103229725288
@@ -91,14 +93,14 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
 
      // //Put random distribution into delta
-     srand((unsigned)time(0)); 
+    //  srand((unsigned)time(0)); 
      
-    for(unsigned int i=0; i<system_size; i++){ 
-       for(unsigned int j=0; j<system_size; j++){
-        delta[{i, j}] = (complex<double>((rand()%100)+1) + complex<double>((rand()%100)+1)*I)*delta_start; 
+    // for(unsigned int i=0; i<system_size; i++){ 
+    //    for(unsigned int j=0; j<system_size; j++){
+    //     delta[{i, j}] = (complex<double>((rand()%100)+1) + complex<double>((rand()%100)+1)*I)*delta_start; 
         
-        }
-    } 
+    //     }
+    // } 
     delta_old = delta;
     symmetry_on = false;
     use_gpu = false;
@@ -134,10 +136,12 @@ void Calculation::readDelta(int nr_sc_loop, string filename = "")
     
 
     delta = ConvertVectorToArray(delta_real_from_file, system_size, system_size);
-    delta_old = delta;  
+    delta_old = delta;
     delete [] dims;
     delete [] delta_real_from_file;
 }
+
+
 
 
 
@@ -188,8 +192,8 @@ void Calculation::InitModel()
 //---------------------------Zeeman term------------------------------------------
                 if(x == system_size/2 and  y == system_size/2)
                 {
-                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {x, y, s}, {x, y, s});
-                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {x, y, s+2}, {x, y, s+2});
+                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {0,x, y, s}, {0, x, y, s});
+                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {0,x, y, s+2}, {0,x, y, s+2});
                 }
             }
         }
@@ -201,8 +205,8 @@ void Calculation::InitModel()
             model << HoppingAmplitude(-t_probe_sample,	{0, position, position, s},	{1, position, position, s}) + HC;
             model << HoppingAmplitude(t_probe_sample,  {0, position, position, s+2}, {1, position, position, s+2}) + HC;
         
-            for(unsigned pos = 1; pos < proble_length; pos++){
-                if(pos+1 < proble_length){
+            for(unsigned pos = 1; pos < probe_length; pos++){
+                if(pos+1 < probe_length){
                     model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
                     model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
                 }
@@ -217,9 +221,6 @@ void Calculation::InitModel()
 
 
 
-    model.construct();
-    solver.setModel(model);
-    solver.setMaxIterations(1000);
     // solver.setScaleFactor(10);
     // solver.setNumCoefficients(1000);
     // solver.setUseLookupTable(true);
@@ -289,7 +290,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     {
         for(unsigned int y = 0; y < system_size; y++)
         {
-            delta[{x , y}] = (-pe.calculateExpectationValue({x,y, 3},{x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
             if(abs((delta[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
             {
                 diff = abs(delta[{x , y}]-delta_old[{x , y}]);
@@ -311,6 +312,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
 
 void Calculation::DoScCalc()
 {
+    model.construct();
     solver.setModel(model);
     SelfConsistencyCallback selfConsistencyCallback;
     solver.setSelfConsistencyCallback(selfConsistencyCallback);
@@ -321,12 +323,19 @@ void Calculation::DoScCalc()
 
 void Calculation::DoCalc()
 {
-    solver.setModel(model);
-    solver.run();
+    model.construct();
+    Asolver.setModel(model);
+    Asolver.setNumLanczosVectors(300);
+    Asolver.setMaxIterations(1000);
+    Asolver.setNumEigenValues(150);
+    Asolver.setCalculateEigenVectors(true);
+    Asolver.setCentralValue(0.01);
+    Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+    Asolver.run();
 	Streams::out << "finished calc" << endl;
 }
 
-void Calculation::WriteOutput()
+void Calculation::WriteOutputSc()
 {
 	PropertyExtractor::Diagonalizer pe(solver);
     FileWriter::setFileName(outputFileName);
@@ -347,11 +356,21 @@ void Calculation::WriteOutput()
 	FileWriter::writeEigenValues(ev);
 
 	// Extract LDOS and write to file
-	Property::LDOS ldos = pe.calculateLDOS(
-		{0,IDX_X, IDX_Y, IDX_SUM_ALL},
-		{0,system_size, system_size,	4}
-	);
-	FileWriter::writeLDOS(ldos);
+    // if(model_tip){
+    //     Property::LDOS ldos = pe.calculateLDOS(
+    //         {IDX_Z,IDX_X, IDX_Y, IDX_SUM_ALL},
+    //         {probe_length,system_size, system_size,	4}
+    //     );
+    //     FileWriter::writeLDOS(ldos);
+    // }
+    // else{
+        Property::LDOS ldos = pe.calculateLDOS(
+            {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+            {1, system_size, system_size,	4}
+        );
+        FileWriter::writeLDOS(ldos);
+    // }
+
 
   WriteDelta(0);
 
@@ -376,6 +395,39 @@ void Calculation::WriteOutput()
 
 //   }
 
+}
+
+void Calculation::WriteOutput()
+{
+	PropertyExtractor::ArnoldiIterator pe(Asolver);
+    FileWriter::setFileName(outputFileName);
+
+    const double UPPER_BOUND = 1; //10*abs(delta_start);
+	const double LOWER_BOUND = -1; //10*abs(delta_start);
+	const int RESOLUTION = 2000;
+	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+
+
+
+  //Extract DOS and write to file
+	Property::DOS dos = pe.calculateDOS();
+	FileWriter::writeDOS(dos);
+
+	//Extract eigen values and write these to file
+	Property::EigenValues ev = pe.getEigenValues();
+	FileWriter::writeEigenValues(ev);
+
+	// Extract LDOS and write to file
+
+        Property::LDOS ldos = pe.calculateLDOS(
+            {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+            {1, system_size, system_size,	4}
+        );
+        FileWriter::writeLDOS(ldos);
+
+
+
+  WriteDelta(0);
 }
 
 void Calculation::WriteDelta(int nr_loop)

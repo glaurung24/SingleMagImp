@@ -6,8 +6,10 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Array.h"
 
 
@@ -26,6 +28,7 @@ class Calculation
         void DoScCalc();
         void DoCalc();
         void WriteOutput();
+        void WriteOutputSc();
         void setVz(complex<double>);
         void setMu(complex<double>);
         void setPhase(double);
@@ -80,7 +83,7 @@ class Calculation
         static complex<double> t_probe;
         static complex<double> t_probe_sample;
         static double phase;
-        static unsigned int proble_length;
+        static unsigned int probe_length;
         static complex<double> delta_start;
         static complex<double> delta_probe;
         static complex<double> coupling_potential;
@@ -89,6 +92,7 @@ class Calculation
         static const double EPS;
 
         static Solver::Diagonalizer solver;
+        static Solver::ArnoldiIterator Asolver;
         //static Solver::ChebyshevExpander solver;
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;
