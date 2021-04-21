@@ -10,7 +10,7 @@
 #include "TBTK/Property/LDOS.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
-#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
+//#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/FileWriter.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"

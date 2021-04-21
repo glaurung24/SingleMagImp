@@ -6,7 +6,7 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
-#include "TBTK/Solver/ArnoldiIterator.h"
+//#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 // #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
