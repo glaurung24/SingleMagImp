@@ -3,7 +3,7 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
-#include "TBTK/Solver/ArnoldiIterator.h"
+// #include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/Property/DOS.h"
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
@@ -46,7 +46,7 @@ Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
 
 Solver::Diagonalizer Calculation::solver;
-Solver::ArnoldiIterator Calculation::Asolver;
+// Solver::ArnoldiIterator Calculation::Asolver;
 // Solver::ChebyshevExpander Calculation::solver;
 
 string Calculation::outputFileName = "";
@@ -321,19 +321,19 @@ void Calculation::DoScCalc()
 	Streams::out << "finished calc" << endl;
 }
 
-void Calculation::DoCalc()
-{
-    model.construct();
-    Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(1600);
-    Asolver.setMaxIterations(5000);
-    Asolver.setNumEigenValues(800);
-    Asolver.setCalculateEigenVectors(true);
-    Asolver.setCentralValue(-0.01);
-    Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
-    Asolver.run();
-	Streams::out << "finished calc" << endl;
-}
+// void Calculation::DoCalc()
+// {
+//     model.construct();
+//     Asolver.setModel(model);
+//     Asolver.setNumLanczosVectors(1600);
+//     Asolver.setMaxIterations(5000);
+//     Asolver.setNumEigenValues(800);
+//     Asolver.setCalculateEigenVectors(true);
+//     Asolver.setCentralValue(-0.01);
+//     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+//     Asolver.run();
+// 	Streams::out << "finished calc" << endl;
+// }
 
 void Calculation::WriteOutputSc()
 {
@@ -372,7 +372,7 @@ void Calculation::WriteOutputSc()
     // }
 
 
-  WriteDelta(0);
+//   WriteDelta(0);
 
 //   for(unsigned int spin = 0; spin < 4; spin++ )
 //   {
@@ -397,38 +397,38 @@ void Calculation::WriteOutputSc()
 
 }
 
-void Calculation::WriteOutput()
-{
-	PropertyExtractor::ArnoldiIterator pe(Asolver);
-    FileWriter::setFileName(outputFileName);
+// void Calculation::WriteOutput()
+// {
+// 	PropertyExtractor::ArnoldiIterator pe(Asolver);
+//     FileWriter::setFileName(outputFileName);
 
-    const double UPPER_BOUND = 1; //10*abs(delta_start);
-	const double LOWER_BOUND = -1; //10*abs(delta_start);
-	const int RESOLUTION = 2000;
-	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+//     const double UPPER_BOUND = 1; //10*abs(delta_start);
+// 	const double LOWER_BOUND = -1; //10*abs(delta_start);
+// 	const int RESOLUTION = 2000;
+// 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
 
-  //Extract DOS and write to file
-	Property::DOS dos = pe.calculateDOS();
-	FileWriter::writeDOS(dos);
+//   //Extract DOS and write to file
+// 	Property::DOS dos = pe.calculateDOS();
+// 	FileWriter::writeDOS(dos);
 
-	//Extract eigen values and write these to file
-	Property::EigenValues ev = pe.getEigenValues();
-	FileWriter::writeEigenValues(ev);
+// 	//Extract eigen values and write these to file
+// 	Property::EigenValues ev = pe.getEigenValues();
+// 	FileWriter::writeEigenValues(ev);
 
-	// Extract LDOS and write to file
+// 	// Extract LDOS and write to file
 
-        // Property::LDOS ldos = pe.calculateLDOS(
-        //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
-        //     {1, system_size, system_size,	4}
-        // );
-        // FileWriter::writeLDOS(ldos);
+//         // Property::LDOS ldos = pe.calculateLDOS(
+//         //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+//         //     {1, system_size, system_size,	4}
+//         // );
+//         // FileWriter::writeLDOS(ldos);
 
 
 
 //   WriteDelta(0);
-}
+// }
 
 void Calculation::WriteDelta(int nr_loop)
 {
