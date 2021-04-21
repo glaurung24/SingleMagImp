@@ -36,6 +36,7 @@ class Calculation
         void setcoupling_potential(complex<double>);
         void AddDefects(int);
         void readDelta(int, string);
+        void WriteDelta(int);
 
 
 
@@ -43,7 +44,7 @@ class Calculation
 
     private:
 
-        void WriteDelta(int);
+        
         Array<double> GetRealVec(Array<complex<double>>);
         Array<double> GetImagVec(Array<complex<double>> );
         Array<complex<double>> CalculateChargeDensity(unsigned int);

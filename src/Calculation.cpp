@@ -73,7 +73,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     system_length = 30;
     system_size = system_length + 1;
 
-    probe_length = 10;
+    probe_length = 30;
 
     delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
@@ -314,8 +314,8 @@ void Calculation::DoScCalc()
 {
     model.construct();
     solver.setModel(model);
-    SelfConsistencyCallback selfConsistencyCallback;
-    solver.setSelfConsistencyCallback(selfConsistencyCallback);
+    // SelfConsistencyCallback selfConsistencyCallback;
+    // solver.setSelfConsistencyCallback(selfConsistencyCallback);
     solver.setMaxIterations(100);
     solver.run();
 	Streams::out << "finished calc" << endl;
@@ -325,11 +325,11 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(300);
-    Asolver.setMaxIterations(1000);
-    Asolver.setNumEigenValues(150);
+    Asolver.setNumLanczosVectors(1600);
+    Asolver.setMaxIterations(5000);
+    Asolver.setNumEigenValues(800);
     Asolver.setCalculateEigenVectors(true);
-    Asolver.setCentralValue(0.01);
+    Asolver.setCentralValue(-0.01);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
 	Streams::out << "finished calc" << endl;
@@ -364,11 +364,11 @@ void Calculation::WriteOutputSc()
     //     FileWriter::writeLDOS(ldos);
     // }
     // else{
-        Property::LDOS ldos = pe.calculateLDOS(
-            {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
-            {1, system_size, system_size,	4}
-        );
-        FileWriter::writeLDOS(ldos);
+        // Property::LDOS ldos = pe.calculateLDOS(
+        //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+        //     {1, system_size, system_size,	4}
+        // );
+        // FileWriter::writeLDOS(ldos);
     // }
 
 
@@ -419,15 +419,15 @@ void Calculation::WriteOutput()
 
 	// Extract LDOS and write to file
 
-        Property::LDOS ldos = pe.calculateLDOS(
-            {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
-            {1, system_size, system_size,	4}
-        );
-        FileWriter::writeLDOS(ldos);
+        // Property::LDOS ldos = pe.calculateLDOS(
+        //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+        //     {1, system_size, system_size,	4}
+        // );
+        // FileWriter::writeLDOS(ldos);
 
 
 
-  WriteDelta(0);
+//   WriteDelta(0);
 }
 
 void Calculation::WriteDelta(int nr_loop)
