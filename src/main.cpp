@@ -43,7 +43,7 @@ int main(int argc, char **argv){
 	string outfile_old = "";
 	for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
 	{
-		string outFile = "coupling_" + to_string(coupling) + "_diag_size21";
+		string outFile = "coupling_" + to_string(coupling) + "_cheb_size21";
 		Calculation calc(outFile, coupling);
 		
 		fstream fileStream;
@@ -57,6 +57,7 @@ int main(int argc, char **argv){
 				calc.readDelta(0, outfile_old);
 			}
 			calc.setcoupling_potential(coupling);
+			calc.setSystem_length(20);
 			calc.InitModel();
 			calc.DoScCalc();
 			calc.WriteOutputSc();

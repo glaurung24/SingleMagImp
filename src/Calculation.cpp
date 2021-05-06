@@ -8,7 +8,7 @@
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
 #include "TBTK/Property/LDOS.h"
-#include "TBTK/PropertyExtractor/Diagonalizer.h"
+// #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 //#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Streams.h"
@@ -23,6 +23,10 @@
 
 unsigned int Calculation::system_length;
 unsigned int Calculation::system_size;
+unsigned int Calculation::num_chebyshev_coeff;
+unsigned int Calculation::num_energy_points;
+double Calculation::lower_energy_bound;
+double Calculation::upper_energy_bound;
 complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
@@ -37,7 +41,7 @@ complex<double> Calculation::mu_probe;
 
 Calculation::FunctionDelta Calculation::functionDelta;
 Calculation::FunctionDeltaProbe Calculation::functionDeltaProbe;
-Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
+// Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
 const double Calculation::EPS = 1E-4;
 const complex<double> Calculation::I = complex<double>(0.0, 1.0);
@@ -45,9 +49,9 @@ const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
 
-Solver::Diagonalizer Calculation::solver;
+// Solver::Diagonalizer Calculation::solver;
 // Solver::ArnoldiIterator Calculation::Asolver;
-// Solver::ChebyshevExpander Calculation::solver;
+Solver::ChebyshevExpander Calculation::solver;
 
 string Calculation::outputFileName = "";
 
@@ -101,11 +105,23 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
         
     //     }
     // } 
+
     delta_old = delta;
     symmetry_on = false;
     use_gpu = false;
+    num_chebyshev_coeff = 12000;
+    num_energy_points = num_chebyshev_coeff * 2;
+    lower_energy_bound = -6;
+    upper_energy_bound = 6;
 
     outputFileName = outputfilename;
+}
+
+void Calculation::setSystem_length(unsigned int lenght)
+{
+    system_length = lenght;
+    system_size = system_length + 1;
+
 }
 
 void Calculation::readDelta(int nr_sc_loop, string filename = "")
@@ -259,15 +275,16 @@ complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index
 }
 
 
-bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
+// bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
+bool Calculation::selfConsistencyCallback()
 {
 //    return true; //TODO
-    PropertyExtractor::Diagonalizer pe(solver);
-    // PropertyExtractor::ChebyshevExpander pe(solver);
+    // PropertyExtractor::Diagonalizer pe(solver);
+    PropertyExtractor::ChebyshevExpander pe(solver);
 
     delta_old = delta;
     double diff = 0.0;
-    pe.setEnergyWindow(-10, 0, 1000);
+    pe.setEnergyWindow(lower_energy_bound, 0, num_energy_points);
 
 
     for(unsigned int x=0; x < system_size; x++)
@@ -297,10 +314,22 @@ void Calculation::DoScCalc()
 {
     model.construct();
     solver.setModel(model);
-    SelfConsistencyCallback selfConsistencyCallback;
-    solver.setSelfConsistencyCallback(selfConsistencyCallback);
-    solver.setMaxIterations(100);
-    solver.run();
+    solver.setScaleFactor(upper_energy_bound);
+    solver.setCalculateCoefficientsOnGPU(use_gpu);
+    solver.setGenerateGreensFunctionsOnGPU(use_gpu);
+    solver.setUseLookupTable(true);
+    solver.setNumCoefficients(num_chebyshev_coeff);
+    // SelfConsistencyCallback selfConsistencyCallback;
+    for(unsigned int i = 0; i < 200; i++)
+    {
+        if(selfConsistencyCallback())
+        {
+            break;
+        }
+    }
+    // solver.setSelfConsistencyCallback(selfConsistencyCallback);
+    // solver.setMaxIterations(100);
+    // solver.run();
 	Streams::out << "finished calc" << endl;
 }
 
@@ -320,22 +349,19 @@ void Calculation::DoScCalc()
 
 void Calculation::WriteOutputSc()
 {
-	PropertyExtractor::Diagonalizer pe(solver);
-
-    const double UPPER_BOUND = 4; //10*abs(delta_start);
-	const double LOWER_BOUND = -4; //-10*abs(delta_start);
-	const int RESOLUTION = 2000;
-	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+	// PropertyExtractor::Diagonalizer pe(solver);
+    PropertyExtractor::ChebyshevExpander pe(solver);
+	pe.setEnergyWindow(lower_energy_bound, upper_energy_bound, num_energy_points);
     WriteDelta(0);
     Exporter exporter;
 
   //Extract DOS and write to file
-	// Property::DOS dos = pe.calculateDOS();
-	// FileWriter::writeDOS(dos);
+	Property::DOS dos = pe.calculateDOS();
+	exporter.save(dos, outputFileName + "_dos.csv");
 
 	//Extract eigen values and write these to file
-	Property::EigenValues ev = pe.getEigenValues();
-	exporter.save(ev, outputFileName + "_eigenvalues.csv");
+	// Property::EigenValues ev = pe.getEigenValues();
+	// exporter.save(ev, outputFileName + "_eigenvalues.csv");
 
 	// Extract LDOS and write to file
     // if(model_tip){
@@ -451,20 +477,20 @@ Array<double> Calculation::GetRealVec(Array<complex<double>> input)
     return output;
 }
 
-Array<complex<double>> Calculation::CalculateChargeDensity(unsigned int spin)
-{
-    PropertyExtractor::Diagonalizer pe(solver);
-    pe.setEnergyWindow(-10, 0, 1000);
-    Array<complex<double>> charge({system_size, system_size});
-    for(unsigned int x=0; x < system_size; x++)
-    {
-        for(unsigned int y = 0; y < system_size; y++)
-        {
-            charge[{x , y}] = pe.calculateExpectationValue({x,y, spin},{x, y, spin});
-        }
-    }
-    return charge;
-}
+// Array<complex<double>> Calculation::CalculateChargeDensity(unsigned int spin)
+// {
+//     PropertyExtractor::Diagonalizer pe(solver);
+//     pe.setEnergyWindow(-10, 0, 1000);
+//     Array<complex<double>> charge({system_size, system_size});
+//     for(unsigned int x=0; x < system_size; x++)
+//     {
+//         for(unsigned int y = 0; y < system_size; y++)
+//         {
+//             charge[{x , y}] = pe.calculateExpectationValue({x,y, spin},{x, y, spin});
+//         }
+//     }
+//     return charge;
+// }
 
 
 Array<double> Calculation::GetImagVec(Array<complex<double>> input)

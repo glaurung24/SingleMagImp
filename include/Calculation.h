@@ -34,6 +34,7 @@ class Calculation
         void setPhase(double);
         void setOutputFileName(string);
         void setcoupling_potential(complex<double>);
+        void setSystem_length(unsigned int);
         void AddDefects(int);
         void readDelta(int, string);
         void WriteDelta(int);
@@ -68,17 +69,23 @@ class Calculation
         };
         static FunctionDeltaProbe functionDeltaProbe;
         
-        class SelfConsistencyCallback :
-        public Solver::Diagonalizer::SelfConsistencyCallback
-        {
-                public:
-                bool selfConsistencyCallback(Solver::Diagonalizer &solver);
+        // class SelfConsistencyCallback :
+        // public Solver::Diagonalizer::SelfConsistencyCallback
+        // {
+        //         public:
+        //         bool selfConsistencyCallback(Solver::Diagonalizer &solver);
                 
-        };
-        static SelfConsistencyCallback selfConsistencyCallback;
+        // };
+        // static SelfConsistencyCallback selfConsistencyCallback;
+
+        bool selfConsistencyCallback();
 
         static unsigned int system_length;
         static unsigned int system_size;
+        static unsigned int num_chebyshev_coeff;
+        static unsigned int num_energy_points;
+        static double lower_energy_bound;
+        static double upper_energy_bound;
         static complex<double> mu;
         static complex<double> mu_probe;
         static complex<double> Vz;
@@ -94,9 +101,9 @@ class Calculation
         static const complex<double> I;
         static const double EPS;
 
-        static Solver::Diagonalizer solver;
+        // static Solver::Diagonalizer solver;
         // static Solver::ArnoldiIterator Asolver;
-        //static Solver::ChebyshevExpander solver;
+        static Solver::ChebyshevExpander solver;
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;
 
