@@ -70,12 +70,12 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 30;
+    system_length = 80;
     system_size = system_length + 1;
 
     probe_length = 30;
 
-    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.05;// 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -151,69 +151,71 @@ void Calculation::InitModel()
     model = Model();
 
     // Indeces: sample:0, tip: 1, x, y, spin
+    unsigned int system_index_sub = 0; //0 for the substrae, 1 for the tip
     for(unsigned int x = 0; x < system_size; x++){
         for(unsigned int y = 0; y < system_size; y++){
             for(unsigned int s = 0; s < 2; s++){
 
 //------------------------chemical Potential-----------------------------------
                 //Add hopping amplitudes corresponding to chemical potential
-                model << HoppingAmplitude(-mu,	{0,x, y, s},	{0,x, y, s});
-                model << HoppingAmplitude(mu,	{0,x, y, s+2},	{0,x, y, s+2});
+                model << HoppingAmplitude(-mu,	{system_index_sub,x, y, s},	{system_index_sub,x, y, s});
+                model << HoppingAmplitude(mu,	{system_index_sub,x, y, s+2},	{system_index_sub,x, y, s+2});
 
 //-------------------BCS interaction term------------------------------------------
 
 //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
-                model << HoppingAmplitude(Calculation::functionDelta, {0,x,y,s}, {0,x,y,(3-s)}) + HC;
+                model << HoppingAmplitude(Calculation::functionDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
 
 
 //------------------------Nearest neighbour hopping term--------------------------------------
                 //Add hopping parameters corresponding to t
                 if(x == system_size - 1){
-                    model << HoppingAmplitude(-t,	{0,(x+1)%system_size, y, s},	{0,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,	{0,x, y, s+2},{0,(x+1)%system_size, y, s+2}) + HC;
+                    model << HoppingAmplitude(-t,	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
+                    model << HoppingAmplitude(t,	{system_index_sub,x, y, s+2},{system_index_sub,(x+1)%system_size, y, s+2}) + HC;
                 }
                 else
                 {
-                    model << HoppingAmplitude(-t,	{0,(x+1)%system_size, y, s},	{0,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,	{0,(x+1)%system_size, y, s+2},{0,x, y, s+2}) + HC;
+                    model << HoppingAmplitude(-t,	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
+                    model << HoppingAmplitude(t,	{system_index_sub,(x+1)%system_size, y, s+2},{system_index_sub,x, y, s+2}) + HC;
                 }
                 
                 if(y == system_size - 1){
-                    model << HoppingAmplitude(-t,	{0, x, (y+1)%system_size, s},	{0,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,  {0,x, y, s+2}, {0,x, (y+1)%system_size, s+2}) + HC;
+                    model << HoppingAmplitude(-t,	{system_index_sub, x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
+                    model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
                 }
                 else
                 {
-                    model << HoppingAmplitude(-t,	{0,x, (y+1)%system_size, s},	{0,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,  {0,x, y, s+2}, {0,x, (y+1)%system_size, s+2}) + HC;
+                    model << HoppingAmplitude(-t,	{system_index_sub,x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
+                    model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
                 }
                 
 
 //---------------------------Zeeman term------------------------------------------
                 if(x == system_size/2 and  y == system_size/2)
                 {
-                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {0,x, y, s}, {0, x, y, s});
-                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {0,x, y, s+2}, {0,x, y, s+2});
+                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {system_index_sub,x, y, s}, {system_index_sub, x, y, s});
+                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_sub,x, y, s+2}, {system_index_sub,x, y, s+2});
                 }
             }
         }
     }
+    unsigned int system_index_tip = 1;
     if(model_tip)
     {
         unsigned int position = system_size/2;
         for(unsigned int s = 0; s < 2; s++){
-            model << HoppingAmplitude(-t_probe_sample,	{0, position, position, s},	{1, position, position, s}) + HC;
-            model << HoppingAmplitude(t_probe_sample,  {0, position, position, s+2}, {1, position, position, s+2}) + HC;
+            model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, 0, s}) + HC;
+            model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, 0, s+2}) + HC;
         
-            for(unsigned pos = 1; pos < probe_length; pos++){
+            for(unsigned pos = 0; pos < probe_length; pos++){
                 if(pos+1 < probe_length){
-                    model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
-                    model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
+                    model << HoppingAmplitude(-t_probe,	{system_index_tip, pos, s},	{system_index_tip, pos+1, s}) + HC;
+                    model << HoppingAmplitude(t_probe,  {system_index_tip, pos, s+2}, {system_index_tip, pos+1, s+2}) + HC;
                 }
-                model << HoppingAmplitude(-mu,	{pos,position, position, s},	{pos,position, position, s});
-                model << HoppingAmplitude(mu,	{pos,position, position, s+2},	{pos,position, position, s+2});
+                model << HoppingAmplitude(-mu,	{system_index_tip, pos, s},	{system_index_tip, pos, s});
+                model << HoppingAmplitude(mu,	{system_index_tip, pos, s+2},	{system_index_tip, pos, s+2});
 
-                model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos,position,position,s}, {pos,position,position,(3-s)}) + HC;
+                model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
             }
         }
     }
@@ -233,9 +235,6 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
     unsigned int from_y = from.at(2);
     unsigned int from_s = from.at(3);
 
-//    if(isnan(real(delta[from_x])) || isnan(imag(delta[from_x])) ) {
-//      cout << "error in " << from_x << endl;
-//    }
     switch(from_s)
     {
     case 0:
@@ -254,10 +253,7 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
 
 complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index& from, const Index& to) const
 {
-    unsigned int from_s = from.at(3);
-//    if(isnan(real(delta[from_x])) || isnan(imag(delta[from_x])) ) {
-//      cout << "error in " << from_x << endl;
-//    }
+    unsigned int from_s = from.at(2);
     switch(from_s)
     {
     case 0:
