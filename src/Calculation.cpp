@@ -11,10 +11,10 @@
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 //#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
-#include "TBTK/FileWriter.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
-#include "TBTK/FileReader.h"
+#include "TBTK/Exporter.h"
+#include "TBTK/Resource.h"
 
 #include <complex>
 #include<math.h>
@@ -70,7 +70,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 80;
+    system_length = 20;
     system_size = system_length + 1;
 
     probe_length = 30;
@@ -105,40 +105,28 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     symmetry_on = false;
     use_gpu = false;
 
-    outputFileName = outputfilename + ".hdf5";
+    outputFileName = outputfilename;
 }
 
 void Calculation::readDelta(int nr_sc_loop, string filename = "")
 {
-    stringstream loopFileNameReal;
-
-    if(nr_sc_loop < 10)
+    if( filename == "")
     {
-        loopFileNameReal << "deltaReal" << nr_sc_loop;
-    }
-    else
-    {
-        loopFileNameReal << "deltaReal" << nr_sc_loop;
-    }
-    
-
-    if(filename == "")
-    {
-        filename = outputFileName;
+        filename = DeltaOutputFilename(nr_sc_loop) + ".json";
     }
 
-    
-    FileReader::setFileName(filename);
-    double* delta_real_from_file = nullptr;
-    int rank;
-    int* dims;
-    FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
-    
-
-    delta = ConvertVectorToArray(delta_real_from_file, system_size, system_size);
+    Resource resource;
+    resource.read(filename);
+    delta = Array<complex<double>>(resource.getData(), Serializable::Mode::JSON);
     delta_old = delta;
-    delete [] dims;
-    delete [] delta_real_from_file;
+}
+
+
+string Calculation::DeltaOutputFilename(const int nr_sc_loop)
+{
+    string nr_padded = to_string(nr_sc_loop);
+    nr_padded.insert(0, 3 - nr_padded.length(), '0');
+    return outputFileName + "_delta_" + nr_padded;
 }
 
 
@@ -303,15 +291,14 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     {
         return false;
     }
-    
 }
 
 void Calculation::DoScCalc()
 {
     model.construct();
     solver.setModel(model);
-    // SelfConsistencyCallback selfConsistencyCallback;
-    // solver.setSelfConsistencyCallback(selfConsistencyCallback);
+    SelfConsistencyCallback selfConsistencyCallback;
+    solver.setSelfConsistencyCallback(selfConsistencyCallback);
     solver.setMaxIterations(100);
     solver.run();
 	Streams::out << "finished calc" << endl;
@@ -334,22 +321,21 @@ void Calculation::DoScCalc()
 void Calculation::WriteOutputSc()
 {
 	PropertyExtractor::Diagonalizer pe(solver);
-    FileWriter::setFileName(outputFileName);
 
     const double UPPER_BOUND = 4; //10*abs(delta_start);
 	const double LOWER_BOUND = -4; //-10*abs(delta_start);
 	const int RESOLUTION = 2000;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
-
-
+    WriteDelta(0);
+    Exporter exporter;
 
   //Extract DOS and write to file
-	Property::DOS dos = pe.calculateDOS();
-	FileWriter::writeDOS(dos);
+	// Property::DOS dos = pe.calculateDOS();
+	// FileWriter::writeDOS(dos);
 
 	//Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
-	FileWriter::writeEigenValues(ev);
+	exporter.save(ev, outputFileName + "_eigenvalues.csv");
 
 	// Extract LDOS and write to file
     // if(model_tip){
@@ -428,11 +414,24 @@ void Calculation::WriteOutputSc()
 
 void Calculation::WriteDelta(int nr_loop)
 {
-    FileWriter::setFileName(outputFileName);
-    const int RANK = 2;
-    int dims[RANK] = {system_size, system_size};
-    FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
-    FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
+    string filename = DeltaOutputFilename(nr_loop);
+    Exporter exporter;
+    exporter.save(GetRealVec(delta), filename + ".csv" );
+
+    if(nr_loop == 0)
+    {
+        string delta_out = delta.serialize(Serializable::Mode::JSON);
+        Resource resource;
+        resource.setData(delta_out);
+        resource.write(filename + ".json");
+    }
+
+
+    // FileWriter::setFileName(outputFileName);
+    // const int RANK = 2;
+    // int dims[RANK] = {system_size, system_size};
+    // FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
+    // FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
 
 }
 

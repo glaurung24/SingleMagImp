@@ -37,6 +37,7 @@ class Calculation
         void AddDefects(int);
         void readDelta(int, string);
         void WriteDelta(int);
+        string DeltaOutputFilename(const int);
 
 
 
@@ -49,6 +50,7 @@ class Calculation
         Array<double> GetImagVec(Array<complex<double>> );
         Array<complex<double>> CalculateChargeDensity(unsigned int);
         Array<complex<double>> ConvertVectorToArray(const double *, unsigned int, unsigned int);
+        
 
         class FunctionDelta : 
         public HoppingAmplitude::AmplitudeCallback
