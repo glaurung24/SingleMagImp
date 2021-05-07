@@ -280,6 +280,7 @@ bool Calculation::selfConsistencyCallback()
 {
 //    return true; //TODO
     // PropertyExtractor::Diagonalizer pe(solver);
+    // solver.setVerbose(true); 
     PropertyExtractor::ChebyshevExpander pe(solver);
 
     delta_old = delta;
@@ -290,7 +291,7 @@ bool Calculation::selfConsistencyCallback()
 
     for(unsigned int x=0; x < system_size; x++)
     {
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for(unsigned int y = 0; y < system_size; y++)
         {
             delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);

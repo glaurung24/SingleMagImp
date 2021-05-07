@@ -57,7 +57,7 @@ int main(int argc, char **argv){
 				calc.readDelta(0, outfile_old);
 			}
 			calc.setcoupling_potential(coupling);
-			calc.setSystem_length(20);
+			calc.setSystem_length(10);
 			calc.InitModel();
 			cout << "starting sc loop" << endl;
 			calc.DoScCalc();
