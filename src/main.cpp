@@ -41,10 +41,10 @@ int main(int argc, char **argv){
 
 	
 	string outfile_old = "";
-	for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
+	for(double coupling = 1.2; coupling <= 1.4; coupling = coupling + 0.01)
 	{
 		string outFile = "coupling_" + to_string(coupling) + "_cheb_size21";
-		Calculation calc(outFile, coupling);
+		Calculation calc(outFile, 0);
 		
 		fstream fileStream;
 		fileStream.open( calc.DeltaOutputFilename(0) + ".json");

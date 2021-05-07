@@ -84,10 +84,10 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     t = 1;
     mu = -0.5; //-1.1, 2.5
     t_probe = t;
-    t_probe_sample = 0.9*t;
+    t_probe_sample = 0.01*t;
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
-    model_tip = true;
+    model_tip = false;
     
 
     Vz = vz_input;
@@ -109,7 +109,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     delta_old = delta;
     symmetry_on = false;
     use_gpu = false;
-    num_chebyshev_coeff = 12000;
+    num_chebyshev_coeff = 6000;
     num_energy_points = num_chebyshev_coeff * 2;
     lower_energy_bound = -6;
     upper_energy_bound = 6;
@@ -316,7 +316,7 @@ void Calculation::DoScCalc()
     solver.setModel(model);
     solver.setScaleFactor(upper_energy_bound);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
-    solver.setGenerateGreensFunctionsOnGPU(use_gpu);
+    solver.setGenerateGreensFunctionsOnGPU(false);
     solver.setUseLookupTable(true);
     solver.setNumCoefficients(num_chebyshev_coeff);
     // SelfConsistencyCallback selfConsistencyCallback;
@@ -350,14 +350,14 @@ void Calculation::DoScCalc()
 void Calculation::WriteOutputSc()
 {
 	// PropertyExtractor::Diagonalizer pe(solver);
-    PropertyExtractor::ChebyshevExpander pe(solver);
-	pe.setEnergyWindow(lower_energy_bound, upper_energy_bound, num_energy_points);
+    // PropertyExtractor::ChebyshevExpander pe(solver);
+	// pe.setEnergyWindow(lower_energy_bound, upper_energy_bound, num_energy_points);
     WriteDelta(0);
-    Exporter exporter;
+    // Exporter exporter;
 
   //Extract DOS and write to file
-	Property::DOS dos = pe.calculateDOS();
-	exporter.save(dos, outputFileName + "_dos.csv");
+	// Property::DOS dos = pe.calculateDOS();
+	// exporter.save(dos, outputFileName + "_dos.csv");
 
 	//Extract eigen values and write these to file
 	// Property::EigenValues ev = pe.getEigenValues();
