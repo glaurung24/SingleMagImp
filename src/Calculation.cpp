@@ -70,7 +70,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 80;
+    system_length = 40;
     system_size = system_length + 1;
 
     probe_length = 30;
@@ -336,16 +336,16 @@ void Calculation::WriteOutputSc()
 	PropertyExtractor::Diagonalizer pe(solver);
     FileWriter::setFileName(outputFileName);
 
-    const double UPPER_BOUND = 4; //10*abs(delta_start);
-	const double LOWER_BOUND = -4; //-10*abs(delta_start);
+    const double UPPER_BOUND = 5; //10*abs(delta_start);
+	const double LOWER_BOUND = -5; //-10*abs(delta_start);
 	const int RESOLUTION = 2000;
 	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
 
   //Extract DOS and write to file
-	Property::DOS dos = pe.calculateDOS();
-	FileWriter::writeDOS(dos);
+	// Property::DOS dos = pe.calculateDOS();
+	// FileWriter::writeDOS(dos);
 
 	//Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
