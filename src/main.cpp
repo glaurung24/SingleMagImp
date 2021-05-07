@@ -43,7 +43,7 @@ int main(int argc, char **argv){
 	string outfile_old = "";
 	for(double coupling = 1.2; coupling <= 1.4; coupling = coupling + 0.01)
 	{
-		string outFile = "coupling_" + to_string(coupling) + "_cheb_size21";
+		string outFile = "coupling_" + to_string(coupling) + "_cheb_size11";
 		Calculation calc(outFile, 0);
 		
 		fstream fileStream;
@@ -59,8 +59,11 @@ int main(int argc, char **argv){
 			calc.setcoupling_potential(coupling);
 			calc.setSystem_length(20);
 			calc.InitModel();
+			cout << "starting sc loop" << endl;
 			calc.DoScCalc();
+			cout << "finished sc calc" << endl;
 			calc.WriteOutputSc();
+			cout << "wrote output" << endl;
 		}
 		outfile_old = calc.DeltaOutputFilename(0) + ".json";
 	}

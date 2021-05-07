@@ -74,7 +74,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 20;
+    system_length = 100;
     system_size = system_length + 1;
 
     probe_length = 30;
@@ -283,25 +283,29 @@ bool Calculation::selfConsistencyCallback()
     PropertyExtractor::ChebyshevExpander pe(solver);
 
     delta_old = delta;
+    Array<complex<double>> delta_temp = delta;
     double diff = 0.0;
-    pe.setEnergyWindow(lower_energy_bound, 0, num_energy_points);
+    pe.setEnergyWindow(lower_energy_bound, 0, num_energy_points/2);
 
 
     for(unsigned int x=0; x < system_size; x++)
     {
+        // #pragma omp parallel for
         for(unsigned int y = 0; y < system_size; y++)
         {
-            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
-            if(abs((delta[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
+            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+            if(abs((delta_temp[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
             {
-                diff = abs(delta[{x , y}]-delta_old[{x , y}]);
+                diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
             }
         }
     }
+    delta = delta_temp;
     diff = diff/abs(delta_start);
     Streams::out << "Updated delta, ddelta = " << to_string(diff) << endl;
     if(diff < EPS)
     {
+        cout << "finished self consistency loop" << endl;
         return true;
     }
     else
