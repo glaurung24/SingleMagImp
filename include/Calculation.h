@@ -6,10 +6,10 @@
 #include "TBTK/Model.h"
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/Solver/ChebyshevExpander.h"
-//#include "TBTK/Solver/ArnoldiIterator.h"
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
-// #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
+#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Array.h"
 
 
@@ -93,7 +93,7 @@ class Calculation
         static const double EPS;
 
         static Solver::Diagonalizer solver;
-        // static Solver::ArnoldiIterator Asolver;
+        static Solver::ArnoldiIterator Asolver;
         //static Solver::ChebyshevExpander solver;
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;

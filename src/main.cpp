@@ -50,7 +50,7 @@ int main(int argc, char **argv){
 				double Vz = vz/16.0;
 				// double Mu = mu/2.0;
 				double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-				outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size21_coupling_10_Full_probe30";
+				outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size101_coupling_01_Full_probe30";
 				// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
 		        // delta_input_file = "vz_" + to_string(Vz) + "_diag_size41";
 
