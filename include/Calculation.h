@@ -49,6 +49,7 @@ class Calculation
         Array<double> GetImagVec(Array<complex<double>> );
         Array<complex<double>> CalculateChargeDensity(unsigned int);
         Array<complex<double>> ConvertVectorToArray(const double *, unsigned int, unsigned int);
+        Array<complex<double>> deltaPadding(Array<complex<double>>, unsigned int, unsigned int, unsigned int, unsigned int);
 
         class FunctionDelta : 
         public HoppingAmplitude::AmplitudeCallback

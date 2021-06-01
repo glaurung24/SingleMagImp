@@ -75,7 +75,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
 
     probe_length = 30;
 
-    delta_start = 0.12;// 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -134,11 +134,29 @@ void Calculation::readDelta(int nr_sc_loop, string filename = "")
     int* dims;
     FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
     
-
-    delta = ConvertVectorToArray(delta_real_from_file, system_size, system_size);
+    Array<complex<double>> input = ConvertVectorToArray(delta_real_from_file, dims[0], dims[1]);
+    delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
     delta_old = delta;
     delete [] dims;
     delete [] delta_real_from_file;
+}
+
+
+Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, unsigned int sizeX, unsigned int sizeY, 
+                                                unsigned int sizeX_small, unsigned int sizeY_small)
+{
+    Array<complex<double>> out = Array<complex<double>>({sizeX, sizeX}, delta_start);
+    unsigned int marginX = (sizeX - sizeX_small)/2;
+    unsigned int marginY = (sizeY - sizeY_small)/2;
+    for(unsigned int i=0; i < sizeX_small; i++)
+    {
+        for(unsigned int j=0; j < sizeY_small; j++)
+        {
+            out[{i+marginX,j+marginY}] = input[j+i*sizeY_small];
+        }
+    }
+    return out;
+
 }
 
 
@@ -204,18 +222,19 @@ void Calculation::InitModel()
     {
         unsigned int position = system_size/2;
         for(unsigned int s = 0; s < 2; s++){
-            model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, 0, s}) + HC;
-            model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, 0, s+2}) + HC;
+            model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+            model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
         
-            for(unsigned pos = 0; pos < probe_length; pos++){
+            for(unsigned pos = 1; pos < probe_length; pos++){
                 if(pos+1 < probe_length){
-                    model << HoppingAmplitude(-t_probe,	{system_index_tip, pos, s},	{system_index_tip, pos+1, s}) + HC;
-                    model << HoppingAmplitude(t_probe,  {system_index_tip, pos, s+2}, {system_index_tip, pos+1, s+2}) + HC;
+                    model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
+                    model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
                 }
-                model << HoppingAmplitude(-mu,	{system_index_tip, pos, s},	{system_index_tip, pos, s});
-                model << HoppingAmplitude(mu,	{system_index_tip, pos, s+2},	{system_index_tip, pos, s+2});
+                model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
+                model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
 
-                model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
+                // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
+                model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
             }
         }
     }
@@ -253,7 +272,7 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
 
 complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index& from, const Index& to) const
 {
-    unsigned int from_s = from.at(2);
+    unsigned int from_s = from.at(3);
     switch(from_s)
     {
     case 0:
@@ -321,11 +340,11 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(200);
-    Asolver.setMaxIterations(1000);
-    Asolver.setNumEigenValues(100);
-    Asolver.setCalculateEigenVectors(true);
-    Asolver.setCentralValue(-0.0001);
+    Asolver.setNumLanczosVectors(50);
+    Asolver.setMaxIterations(10000);
+    Asolver.setNumEigenValues(20);
+    Asolver.setCalculateEigenVectors(false);
+    Asolver.setCentralValue(-0.001);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
 	Streams::out << "finished calc" << endl;
@@ -336,10 +355,10 @@ void Calculation::WriteOutputSc()
 	PropertyExtractor::Diagonalizer pe(solver);
     FileWriter::setFileName(outputFileName);
 
-    const double UPPER_BOUND = 5; //10*abs(delta_start);
-	const double LOWER_BOUND = -5; //-10*abs(delta_start);
-	const int RESOLUTION = 2000;
-	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+    // const double UPPER_BOUND = 5; //10*abs(delta_start);
+	// const double LOWER_BOUND = -5; //-10*abs(delta_start);
+	// const int RESOLUTION = 2000;
+	// pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
 
@@ -398,10 +417,10 @@ void Calculation::WriteOutput()
 	PropertyExtractor::ArnoldiIterator pe(Asolver);
     FileWriter::setFileName(outputFileName);
 
-    const double UPPER_BOUND = 1; //10*abs(delta_start);
-	const double LOWER_BOUND = -1; //10*abs(delta_start);
-	const int RESOLUTION = 2000;
-	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+    // const double UPPER_BOUND = 1; //10*abs(delta_start);
+	// const double LOWER_BOUND = -1; //10*abs(delta_start);
+	// const int RESOLUTION = 2000;
+	// pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
 
@@ -423,7 +442,7 @@ void Calculation::WriteOutput()
 
 
 
-  WriteDelta(0);
+//   WriteDelta(0);
 }
 
 void Calculation::WriteDelta(int nr_loop)
