@@ -70,7 +70,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 50;
+    system_length = 100;
     system_size = system_length + 1;
 
     probe_length = 30;
@@ -340,11 +340,11 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(50);
-    Asolver.setMaxIterations(10000);
-    Asolver.setNumEigenValues(20);
-    Asolver.setCalculateEigenVectors(false);
-    Asolver.setCentralValue(-0.001);
+    Asolver.setNumLanczosVectors(600);
+    Asolver.setMaxIterations(20000);
+    Asolver.setNumEigenValues(300);
+    Asolver.setCalculateEigenVectors(true);
+    Asolver.setCentralValue(-0.01);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
 	Streams::out << "finished calc" << endl;
@@ -417,9 +417,9 @@ void Calculation::WriteOutput()
 	PropertyExtractor::ArnoldiIterator pe(Asolver);
     FileWriter::setFileName(outputFileName);
 
-    // const double UPPER_BOUND = 1; //10*abs(delta_start);
-	// const double LOWER_BOUND = -1; //10*abs(delta_start);
-	// const int RESOLUTION = 2000;
+    // const double UPPER_BOUND = 2*abs(delta_start);
+	// const double LOWER_BOUND = -2*abs(delta_start);
+	// const int RESOLUTION = 5000;
 	// pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
@@ -434,12 +434,23 @@ void Calculation::WriteOutput()
 
 	// Extract LDOS and write to file
 
-        // Property::LDOS ldos = pe.calculateLDOS(
-        //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
-        //     {1, system_size, system_size,	4}
-        // );
-        // FileWriter::writeLDOS(ldos);
+    //     Property::LDOS ldos = pe.calculateLDOS(
+    //         {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+    //         {1, system_size, system_size,	4}
+    //     );
+    //     FileWriter::writeLDOS(ldos);
 
+
+//   int nr_excited_states = 150;
+
+//   for(int i = 0; i < nr_excited_states; i++){
+//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
+//           {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+//           {i}
+//       );
+//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+
+//   }
 
 
 //   WriteDelta(0);
