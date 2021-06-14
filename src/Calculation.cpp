@@ -30,6 +30,7 @@ complex<double> Calculation::delta_start;
 complex<double> Calculation::coupling_potential;
 complex<double> Calculation::t_probe;
 complex<double> Calculation::t_probe_sample;
+complex<double> Calculation::t_sample_imp;
 double Calculation::phase;
 unsigned int Calculation::probe_length;
 complex<double> Calculation::delta_probe;
@@ -73,7 +74,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     system_length = 100;
     system_size = system_length + 1;
 
-    probe_length = 30;
+    probe_length = system_length^2;
 
     delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
@@ -81,6 +82,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     mu = -0.5; //-1.1, 2.5
     t_probe = t;
     t_probe_sample = 0.01*t;
+    t_sample_imp = 1.0*t;
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
     model_tip = true;
@@ -170,6 +172,7 @@ void Calculation::InitModel()
 
     // Indeces: sample:0, tip: 1, x, y, spin
     unsigned int system_index_sub = 0; //0 for the substrae, 1 for the tip
+    unsigned int system_index_imp = 1;
     for(unsigned int x = 0; x < system_size; x++){
         for(unsigned int y = 0; y < system_size; y++){
             for(unsigned int s = 0; s < 2; s++){
@@ -211,21 +214,25 @@ void Calculation::InitModel()
 //---------------------------Zeeman term------------------------------------------
                 if(x == system_size/2 and  y == system_size/2)
                 {
-                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {system_index_sub,x, y, s}, {system_index_sub, x, y, s});
-                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_sub,x, y, s+2}, {system_index_sub,x, y, s+2});
+                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {system_index_imp,x, y, s}, {system_index_imp, x, y, s});
+                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_imp,x, y, s+2}, {system_index_imp,x, y, s+2});
+                    model << HoppingAmplitude(-mu,	{system_index_imp,x, y, s},	{system_index_imp,x, y, s});
+                    model << HoppingAmplitude(mu,	{system_index_imp,x, y, s+2},	{system_index_imp,x, y, s+2});
+                    model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, position, position, s},	{system_index_imp, position, position, s}) + HC;
+                    model << HoppingAmplitude(t_sample_imp,  {system_index_sub, position, position, s+2}, {system_index_imp, position, position, s+2}) + HC;
                 }
             }
         }
     }
-    unsigned int system_index_tip = 1;
+    unsigned int system_index_tip = 2;
     if(model_tip)
     {
         unsigned int position = system_size/2;
         for(unsigned int s = 0; s < 2; s++){
-            model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
-            model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+            model << HoppingAmplitude(-t_probe_sample,	{t_sample_imp, position, position, s},	{system_index_tip, position, position, s}) + HC;
+            model << HoppingAmplitude(t_probe_sample,  {t_sample_imp, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
         
-            for(unsigned pos = 1; pos < probe_length; pos++){
+            for(unsigned pos = system_index_tip; pos < probe_length; pos++){
                 if(pos+1 < probe_length){
                     model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
                     model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
@@ -340,10 +347,10 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(600);
+    Asolver.setNumLanczosVectors(4000);
     Asolver.setMaxIterations(20000);
-    Asolver.setNumEigenValues(300);
-    Asolver.setCalculateEigenVectors(true);
+    Asolver.setNumEigenValues(2000);
+    Asolver.setCalculateEigenVectors(false);
     Asolver.setCentralValue(-0.01);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();

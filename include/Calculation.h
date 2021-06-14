@@ -84,6 +84,7 @@ class Calculation
         static complex<double> t;
         static complex<double> t_probe;
         static complex<double> t_probe_sample;
+        static complex<double> t_sample_imp;
         static double phase;
         static unsigned int probe_length;
         static complex<double> delta_start;
