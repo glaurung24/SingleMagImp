@@ -30,6 +30,7 @@ class Calculation
         void WriteOutput();
         void WriteOutputSc();
         void setVz(complex<double>);
+        void setTImpSample(complex<double>);
         void setMu(complex<double>);
         void setPhase(double);
         void setOutputFileName(string);

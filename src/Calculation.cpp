@@ -529,6 +529,12 @@ void Calculation::setVz(complex<double> input)
   Vz = input;
 }
 
+
+void Calculation::setTImpSample(complex<double> input)
+{
+  t_sample_imp = input;
+}
+
 void Calculation::setMu(complex<double> input)
 {
   mu = input;

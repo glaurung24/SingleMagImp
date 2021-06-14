@@ -43,15 +43,15 @@ int main(int argc, char **argv){
 		// string old_outFile = "";
 		string outFile;
 		string delta_input_file;
-		for(int vz = 0; vz <= 32; vz++)
+		for(int vz = 0; vz <= 16; vz++)
 		{
-			unsigned int nr_phase = 32;
+			unsigned int nr_phase = 16;
 			for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
 				double Vz = vz/8.0;
 				// double Mu = mu/2.0;
 				// double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
 				double phase = 0;
-				outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size101_coupling_01_Full_probe30_dos2";
+				outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size101_coupling_01_Full_probeNew_astmodel";
 				// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
 		        // delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
 
