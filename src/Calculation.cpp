@@ -218,8 +218,8 @@ void Calculation::InitModel()
                     model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_imp,x, y, s+2}, {system_index_imp,x, y, s+2});
                     model << HoppingAmplitude(-mu,	{system_index_imp,x, y, s},	{system_index_imp,x, y, s});
                     model << HoppingAmplitude(mu,	{system_index_imp,x, y, s+2},	{system_index_imp,x, y, s+2});
-                    model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, position, position, s},	{system_index_imp, position, position, s}) + HC;
-                    model << HoppingAmplitude(t_sample_imp,  {system_index_sub, position, position, s+2}, {system_index_imp, position, position, s+2}) + HC;
+                    model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, x, y, s},	{system_index_imp, x, y, s}) + HC;
+                    model << HoppingAmplitude(t_sample_imp,  {system_index_sub, x, y, s+2}, {system_index_imp, x, y, s+2}) + HC;
                 }
             }
         }
@@ -229,8 +229,8 @@ void Calculation::InitModel()
     {
         unsigned int position = system_size/2;
         for(unsigned int s = 0; s < 2; s++){
-            model << HoppingAmplitude(-t_probe_sample,	{t_sample_imp, position, position, s},	{system_index_tip, position, position, s}) + HC;
-            model << HoppingAmplitude(t_probe_sample,  {t_sample_imp, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+            model << HoppingAmplitude(-t_probe_sample,	{system_index_imp, position, position, s},	{system_index_tip, position, position, s}) + HC;
+            model << HoppingAmplitude(t_probe_sample,  {system_index_imp, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
         
             for(unsigned pos = system_index_tip; pos < probe_length; pos++){
                 if(pos+1 < probe_length){
