@@ -73,9 +73,9 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     system_length = 100;
     system_size = system_length + 1;
 
-    probe_length = 30;
+    probe_length = system_size^2;
 
-    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -417,10 +417,10 @@ void Calculation::WriteOutput()
 	PropertyExtractor::ArnoldiIterator pe(Asolver);
     FileWriter::setFileName(outputFileName);
 
-    // const double UPPER_BOUND = 2*abs(delta_start);
-	// const double LOWER_BOUND = -2*abs(delta_start);
-	// const int RESOLUTION = 5000;
-	// pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+    const double UPPER_BOUND = 2*abs(delta_start);
+	const double LOWER_BOUND = -2*abs(delta_start);
+	const int RESOLUTION = 5000;
+	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
 
@@ -434,11 +434,19 @@ void Calculation::WriteOutput()
 
 	// Extract LDOS and write to file
 
-    //     Property::LDOS ldos = pe.calculateLDOS(
-    //         {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
-    //         {1, system_size, system_size,	4}
-    //     );
-    //     FileWriter::writeLDOS(ldos);
+        // Property::LDOS ldos = pe.calculateLDOS(
+        //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+        //     {1, system_size, system_size,	4}
+        // );
+        // FileWriter::writeLDOS(ldos);
+
+	// Extract LDOS and write to file
+
+        Property::LDOS ldos = pe.calculateLDOS({
+            {0, system_size/2, system_size/2, IDX_SUM_ALL},
+            {1, system_size/2, system_size/2, IDX_SUM_ALL},
+        });
+        FileWriter::writeLDOS(ldos);
 
 
 //   int nr_excited_states = 150;
