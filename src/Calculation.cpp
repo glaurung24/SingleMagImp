@@ -79,7 +79,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
 
     probe_length = system_size^2;
 
-    delta_start = 0.0379431;// 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.05091;// 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -93,7 +93,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     Vz = vz_input;
     // A coupling potential of 2.5 gives a delta of 0.551213123012
     // A coupling potential of 1.475 gives a delta of 0.103229725288
-    coupling_potential = 1.2;//1.475; //2.0, 1.5 //TODO change back!!!
+    coupling_potential = 1.21;//1.475; //2.0, 1.5 //TODO change back!!!
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
 
      // //Put random distribution into delta
@@ -108,11 +108,11 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
 
     delta_old = delta;
     symmetry_on = false;
-    use_gpu = false;
-    num_chebyshev_coeff = 20000;
+    use_gpu = true;
+    num_chebyshev_coeff = 25000;
     num_energy_points = num_chebyshev_coeff * 2;
-    lower_energy_bound = -6;
-    upper_energy_bound = 6;
+    lower_energy_bound = -7;
+    upper_energy_bound = 7;
 
     outputFileName = outputfilename;
 }
@@ -285,39 +285,60 @@ bool Calculation::selfConsistencyCallback()
     PropertyExtractor::ChebyshevExpander pe(solver);
 
     delta_old = delta;
-    // Array<complex<double>> delta_temp = delta;
+    Array<complex<double>> delta_temp = delta;
     double diff = 0.0;
     pe.setEnergyWindow(lower_energy_bound, 0, num_energy_points/2);
 
-
-    // for(unsigned int x=0; x < system_size; x++)
-    // {
-    //     #pragma omp parallel for
-    //     for(unsigned int y = 0; y < system_size; y++)
-    //     {
-    //         delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
-    //         if(abs((delta_temp[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
-    //         {
-    //             diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
-    //         }
-    //     }
-    // }
-    // delta = delta_temp;
-    complex<double> delta_temp;
-    unsigned int position = system_size/2; 
-    delta_temp = -pe.calculateExpectationValue({0,position,position, 3},{0,position, position, 0})*coupling_potential;
-    diff = abs(delta_temp-delta_old[{position , position}]);
-    diff = diff/abs(delta_start);
-    for(unsigned int x=0; x < system_size; x++)
+    unsigned int position = system_size/2;
+    for(unsigned int x=position; x < system_size; x++)
     {
-        for(unsigned int y = 0; y < system_size; y++)
+
+        #pragma omp parallel for
+        for(unsigned int y = position; y <= x; y++)
         {
-            delta[{x , y}] = delta_temp;
+            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.7 + delta_old[{x , y}]*0.3);
+            if(abs((delta_temp[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
+            {
+                diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
+            }
         }
     }
 
+    for(unsigned int x=position; x < system_size; x++)
+    {
+        for(unsigned int y = position; y <= x; y++)
+        {
+            //Upper half
+            //right
+            delta[{x , y}] = delta_temp[{x , y}];
+            delta[{y , x}] = delta_temp[{x , y}];
+            //left
+            delta[{2*position-x , y}] = delta_temp[{x , y}];
+            delta[{y , 2*position-x}] = delta_temp[{x , y}];
+            //Lower half
+            //left
+            delta[{2*position-x , 2*position-y}] = delta_temp[{x , y}];
+            delta[{2*position-y , 2*position-x}] = delta_temp[{x , y}];
+            //right
+            delta[{x , 2*position-y}] = delta_temp[{x , y}];
+            delta[{2*position-y , x}] = delta_temp[{x , y}];
+        }
+    }
+    // complex<double> delta_temp;
+    // unsigned int position = system_size/2; 
+    // delta_temp = -pe.calculateExpectationValue({0,position,position, 3},{0,position, position, 0})*coupling_potential;
+    // diff = abs(delta_temp-delta_old[{position , position}]);
+    // diff = diff/abs(delta_start);
+    // for(unsigned int x=0; x < system_size; x++)
+    // {
+    //     for(unsigned int y = 0; y < system_size; y++)
+    //     {
+    //         delta[{x , y}] = delta_temp;
+    //     }
+    // }
 
-    Streams::out << "Updated delta = " << to_string(real(delta_temp)) << ", ddelta = " << to_string(diff) << endl;
+
+    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(diff) << endl;
     if(diff < EPS)
     {
         cout << "finished self consistency loop" << endl;
@@ -335,7 +356,7 @@ void Calculation::DoScCalc()
     solver.setModel(model);
     solver.setScaleFactor(upper_energy_bound);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
-    solver.setGenerateGreensFunctionsOnGPU(false);
+    solver.setGenerateGreensFunctionsOnGPU(true);
     solver.setUseLookupTable(true);
     solver.setNumCoefficients(num_chebyshev_coeff);
     for(unsigned int i = 0; i < 200; i++)

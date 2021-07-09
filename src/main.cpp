@@ -40,30 +40,58 @@ int main(int argc, char **argv){
 
 
 	
-	string outfile_old = "";
-	for(double coupling = 1.2; coupling <= 1.3; coupling = coupling+0.01)
-	{
-		unsigned int size = 250;
-		string outFile = "coupling_" + to_string(coupling) + "_cheb_size" + to_string(size + 1);
-		Calculation calc(outFile, 0);
+	// string outfile_old = "";
+	// for(double coupling = 1.2; coupling <= 1.3; coupling = coupling+0.01)
+	// {
+	// 	unsigned int size = 250;
+	// 	string outFile = "coupling_" + to_string(coupling) + "_cheb_size" + to_string(size + 1);
+	// 	Calculation calc(outFile, 0);
 		
-		fstream fileStream;
-		fileStream.open( calc.DeltaOutputFilename(0) + ".json");
-		if(fileStream.fail())
-      	{
-			fstream fileStreamOld;
-			fileStreamOld.open( outfile_old);
-			if(!fileStreamOld.fail())
+	// 	fstream fileStream;
+	// 	fileStream.open( calc.DeltaOutputFilename(0) + ".json");
+	// 	if(fileStream.fail())
+    //   	{
+	// 		fstream fileStreamOld;
+	// 		fileStreamOld.open( outfile_old);
+	// 		if(!fileStreamOld.fail())
+	// 		{
+	// 			calc.readDelta(0, outfile_old);
+	// 		}
+	// 		calc.setcoupling_potential(coupling);
+	// 		calc.InitModel();
+	// 		calc.DoScCalc();
+	// 		calc.WriteOutputSc();
+	// 	}
+	// 	outfile_old = calc.DeltaOutputFilename(0) + ".json";
+	// }
+
+
+	string outFile;
+	string outFile_old = "";
+	string delta_input_file;
+	for(int vz = 0; vz <= 32; vz++)
+	{
+
+		double Vz = vz/16.0;
+		outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5"  + "_cheby_size251_sc";
+		delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
+
+		if(!file_exists(outFile + "_delta_000.json"))
+		{
+			Calculation calc(outFile, complex<double>(Vz));
+			cout << outFile_old << endl;
+			if(file_exists(outFile_old))
 			{
-				calc.readDelta(0, outfile_old);
+				calc.readDelta(0, outFile_old);
 			}
-			calc.setcoupling_potential(coupling);
 			calc.InitModel();
 			calc.DoScCalc();
 			calc.WriteOutputSc();
+			outFile_old = calc.DeltaOutputFilename(0) + ".json";
 		}
-		outfile_old = calc.DeltaOutputFilename(0) + ".json";
+		
 	}
+
 
 
 
@@ -72,38 +100,3 @@ int main(int argc, char **argv){
 	return 0;
 }
 
-	// // for(int mu = 0; mu <= 8; mu++)
-	// // {
-	// 	// string old_outFile = "";
-	// 	string outFile;
-	// 	string delta_input_file;
-	// 	for(int vz = 0; vz <= 32; vz++)
-	// 	{
-	// 		unsigned int nr_phase = 32;
-	// 		for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
-	// 			double Vz = vz/16.0;
-	// 			// double Mu = mu/2.0;
-	// 			double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-	// 			outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size21_coupling_90_Full_probe30";
-	// 			// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-	// 	        // delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
-
-	// 			if(!file_exists(outFile + ".hdf5"))
-	// 			{
-	// 				Calculation calc(outFile, complex<double>(Vz));
-	// 				// calc.setMu(Mu);
-	// 				// if(old_outFile != "")
-	// 				// {
-	// 				// calc.readDelta(0, delta_input_file + ".hdf5");
-	// 				calc.WriteDelta(0);
-	// 				// }
-	// 				calc.setPhase(phase);
-	// 				calc.InitModel();
-	// 				calc.DoScCalc();
-	// 				// calc.DoCalc();
-	// 				// calc.WriteOutput();
-	// 				calc.WriteOutputSc();
-	// 			}
-	// 		}
-	// 		// old_outFile = outFile;
-	// 	// }
