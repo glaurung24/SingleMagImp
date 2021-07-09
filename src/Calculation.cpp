@@ -8,7 +8,7 @@
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
 #include "TBTK/Property/LDOS.h"
-// #include "TBTK/PropertyExtractor/Diagonalizer.h"
+#include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 //#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Streams.h"
@@ -74,12 +74,12 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 100;
+    system_length = 250;
     system_size = system_length + 1;
 
-    probe_length = 30;
+    probe_length = system_size^2;
 
-    delta_start = 0.05;// 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.0379431;// 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -93,7 +93,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     Vz = vz_input;
     // A coupling potential of 2.5 gives a delta of 0.551213123012
     // A coupling potential of 1.475 gives a delta of 0.103229725288
-    coupling_potential = 1.475; //2.0, 1.5 //TODO change back!!!
+    coupling_potential = 1.2;//1.475; //2.0, 1.5 //TODO change back!!!
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
 
      // //Put random distribution into delta
@@ -109,7 +109,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     delta_old = delta;
     symmetry_on = false;
     use_gpu = false;
-    num_chebyshev_coeff = 6000;
+    num_chebyshev_coeff = 20000;
     num_energy_points = num_chebyshev_coeff * 2;
     lower_energy_bound = -6;
     upper_energy_bound = 6;
@@ -121,7 +121,7 @@ void Calculation::setSystem_length(unsigned int lenght)
 {
     system_length = lenght;
     system_size = system_length + 1;
-
+    delta = Array<complex<double>>({system_size, system_size}, delta_start);
 }
 
 void Calculation::readDelta(int nr_sc_loop, string filename = "")
@@ -135,6 +135,8 @@ void Calculation::readDelta(int nr_sc_loop, string filename = "")
     resource.read(filename);
     delta = Array<complex<double>>(resource.getData(), Serializable::Mode::JSON);
     delta_old = delta;
+    unsigned int position = system_size/2;
+    delta_start = delta[{position,position}];
 }
 
 
@@ -278,32 +280,44 @@ complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index
 // bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 bool Calculation::selfConsistencyCallback()
 {
-//    return true; //TODO
     // PropertyExtractor::Diagonalizer pe(solver);
     // solver.setVerbose(true); 
     PropertyExtractor::ChebyshevExpander pe(solver);
 
     delta_old = delta;
-    Array<complex<double>> delta_temp = delta;
+    // Array<complex<double>> delta_temp = delta;
     double diff = 0.0;
     pe.setEnergyWindow(lower_energy_bound, 0, num_energy_points/2);
 
 
+    // for(unsigned int x=0; x < system_size; x++)
+    // {
+    //     #pragma omp parallel for
+    //     for(unsigned int y = 0; y < system_size; y++)
+    //     {
+    //         delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+    //         if(abs((delta_temp[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
+    //         {
+    //             diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
+    //         }
+    //     }
+    // }
+    // delta = delta_temp;
+    complex<double> delta_temp;
+    unsigned int position = system_size/2; 
+    delta_temp = -pe.calculateExpectationValue({0,position,position, 3},{0,position, position, 0})*coupling_potential;
+    diff = abs(delta_temp-delta_old[{position , position}]);
+    diff = diff/abs(delta_start);
     for(unsigned int x=0; x < system_size; x++)
     {
-        #pragma omp parallel for
         for(unsigned int y = 0; y < system_size; y++)
         {
-            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
-            if(abs((delta_temp[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
-            {
-                diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
-            }
+            delta[{x , y}] = delta_temp;
         }
     }
-    delta = delta_temp;
-    diff = diff/abs(delta_start);
-    Streams::out << "Updated delta, ddelta = " << to_string(diff) << endl;
+
+
+    Streams::out << "Updated delta = " << to_string(real(delta_temp)) << ", ddelta = " << to_string(diff) << endl;
     if(diff < EPS)
     {
         cout << "finished self consistency loop" << endl;
@@ -324,7 +338,6 @@ void Calculation::DoScCalc()
     solver.setGenerateGreensFunctionsOnGPU(false);
     solver.setUseLookupTable(true);
     solver.setNumCoefficients(num_chebyshev_coeff);
-    // SelfConsistencyCallback selfConsistencyCallback;
     for(unsigned int i = 0; i < 200; i++)
     {
         if(selfConsistencyCallback())
