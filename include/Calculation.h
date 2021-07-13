@@ -34,9 +34,11 @@ class Calculation
         void setPhase(double);
         void setOutputFileName(string);
         void setcoupling_potential(complex<double>);
+        void setTipPosition(unsigned int);
         void AddDefects(int);
         void readDelta(int, string);
         void WriteDelta(int);
+        unsigned int getSystemSize();
 
 
 
@@ -78,6 +80,7 @@ class Calculation
 
         static unsigned int system_length;
         static unsigned int system_size;
+        static unsigned int tip_position;
         static complex<double> mu;
         static complex<double> mu_probe;
         static complex<double> Vz;
@@ -101,9 +104,10 @@ class Calculation
 
         static string outputFileName;
 
-        bool symmetry_on;
-        bool use_gpu;
-        bool model_tip;
+        static bool symmetry_on;
+        static bool use_gpu;
+        static bool model_tip;
+        static bool flat_tip;
 
 
         Model model;

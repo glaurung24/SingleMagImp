@@ -23,6 +23,7 @@
 
 unsigned int Calculation::system_length;
 unsigned int Calculation::system_size;
+unsigned int Calculation::tip_position;
 complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
@@ -44,6 +45,11 @@ const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 
 Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
+
+bool Calculation::symmetry_on;
+bool Calculation::use_gpu;
+bool Calculation::model_tip;
+bool Calculation::flat_tip;
 
 Solver::Diagonalizer Calculation::solver;
 Solver::ArnoldiIterator Calculation::Asolver;
@@ -70,7 +76,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 100;
+    system_length = 150;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
@@ -84,6 +90,9 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
     model_tip = true;
+    flat_tip = true;
+
+    tip_position = system_size/2;
     
 
     Vz = vz_input;
@@ -220,26 +229,74 @@ void Calculation::InitModel()
     unsigned int system_index_tip = 1;
     if(model_tip)
     {
-        unsigned int position = system_size/2;
-        for(unsigned int s = 0; s < 2; s++){
-            model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
-            model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
-        
-            for(unsigned pos = 1; pos < probe_length; pos++){
-                if(pos+1 < probe_length){
-                    model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
-                    model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
-                }
-                model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
-                model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
+        unsigned int position = tip_position;
+        if(!flat_tip)
+        {
+            for(unsigned int s = 0; s < 2; s++){
+                model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+                model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+            
+                for(unsigned pos = 1; pos < probe_length; pos++){
+                    if(pos+1 < probe_length){
+                        model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
+                        model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
+                    }
+                    model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
+                    model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
 
-                // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
-                model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
+                    // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
+                    model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
+                }
+            }
+        }
+        else
+        {    
+            for(unsigned int s = 0; s < 2; s++){
+                model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+                model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+            }
+            for(unsigned int x = 0; x < system_size; x++){
+                for(unsigned int y = 0; y < system_size; y++){
+                    for(unsigned int s = 0; s < 2; s++){
+
+        //------------------------chemical Potential-----------------------------------
+                        //Add hopping amplitudes corresponding to chemical potential
+                        model << HoppingAmplitude(-mu,	{system_index_tip,x, y, s},	{system_index_tip,x, y, s});
+                        model << HoppingAmplitude(mu,	{system_index_tip,x, y, s+2},	{system_index_tip,x, y, s+2});
+
+        //-------------------BCS interaction term------------------------------------------
+
+        //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+                        model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip,x,y,s}, {system_index_tip,x,y,(3-s)}) + HC;
+
+
+        //------------------------Nearest neighbour hopping term--------------------------------------
+                        //Add hopping parameters corresponding to t
+                        if(x == system_size - 1){
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,	{system_index_tip,x, y, s+2},{system_index_tip,(x+1)%system_size, y, s+2}) + HC;
+                        }
+                        else
+                        {
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,	{system_index_tip,(x+1)%system_size, y, s+2},{system_index_tip,x, y, s+2}) + HC;
+                        }
+                        
+                        if(y == system_size - 1){
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip, x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
+                        }
+                        else
+                        {
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip,x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
+                        }
+
+                    }
+                }
             }
         }
     }
-    
-
 
 
     // solver.setScaleFactor(10);
@@ -417,10 +474,10 @@ void Calculation::WriteOutput()
 	PropertyExtractor::ArnoldiIterator pe(Asolver);
     FileWriter::setFileName(outputFileName);
 
-    const double UPPER_BOUND = 2*abs(delta_start);
-	const double LOWER_BOUND = -2*abs(delta_start);
-	const int RESOLUTION = 5000;
-	pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
+    // const double UPPER_BOUND = 2*abs(delta_start);
+	// const double LOWER_BOUND = -2*abs(delta_start);
+	// const int RESOLUTION = 5000;
+	// pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
 
@@ -442,11 +499,11 @@ void Calculation::WriteOutput()
 
 	// Extract LDOS and write to file
 
-        Property::LDOS ldos = pe.calculateLDOS({
-            {0, system_size/2, system_size/2, IDX_SUM_ALL},
-            {1, system_size/2, system_size/2, IDX_SUM_ALL},
-        });
-        FileWriter::writeLDOS(ldos);
+        // Property::LDOS ldos = pe.calculateLDOS({
+        //     {0, system_size/2, system_size/2, IDX_SUM_ALL},
+        //     {1, system_size/2, system_size/2, IDX_SUM_ALL},
+        // });
+        // FileWriter::writeLDOS(ldos);
 
 
 //   int nr_excited_states = 150;
@@ -550,6 +607,16 @@ void Calculation::setOutputFileName(string input)
 void Calculation::setcoupling_potential(complex<double> input)
 {
   coupling_potential = input;
+}
+
+void Calculation::setTipPosition(unsigned int position)
+{
+    tip_position = position;
+}
+
+unsigned int Calculation::getSystemSize()
+{
+    return system_size;
 }
 
 Array<complex<double>> Calculation::ConvertVectorToArray(const double *input, unsigned int sizeX, unsigned int sizeY)
