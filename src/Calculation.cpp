@@ -81,12 +81,12 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
 
     probe_length = system_size^2;
 
-    delta_start = 0; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
     t_probe = t;
-    t_probe_sample = 0.01*t;
+    t_probe_sample = 0.1*t;
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
     model_tip = true;
@@ -112,7 +112,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // } 
     delta_old = delta;
     symmetry_on = false;
-    use_gpu = false;
+    use_gpu = true;
 
     outputFileName = outputfilename + ".hdf5";
 }
@@ -397,9 +397,9 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(600);
+    Asolver.setNumLanczosVectors(4000);
     Asolver.setMaxIterations(20000);
-    Asolver.setNumEigenValues(300);
+    Asolver.setNumEigenValues(2000);
     Asolver.setCalculateEigenVectors(true);
     Asolver.setCentralValue(-0.01);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
