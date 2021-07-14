@@ -39,6 +39,7 @@ class Calculation
         void readDelta(int, string);
         void WriteDelta(int);
         unsigned int getSystemSize();
+        string DeltaOutputFilename(const int nr_sc_loop);
 
 
 

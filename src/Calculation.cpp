@@ -117,38 +117,30 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     outputFileName = outputfilename + ".hdf5";
 }
 
+
 void Calculation::readDelta(int nr_sc_loop, string filename = "")
 {
-    stringstream loopFileNameReal;
-
-    if(nr_sc_loop < 10)
+    if( filename == "")
     {
-        loopFileNameReal << "deltaReal" << nr_sc_loop;
-    }
-    else
-    {
-        loopFileNameReal << "deltaReal" << nr_sc_loop;
-    }
-    
-
-    if(filename == "")
-    {
-        filename = outputFileName;
+        filename = DeltaOutputFilename(nr_sc_loop) + ".json";
     }
 
-    
-    // FileReader::setFileName(filename);
-    double* delta_real_from_file = nullptr;
-    int rank;
-    int* dims;
-    FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
-    
-    Array<complex<double>> input = ConvertVectorToArray(delta_real_from_file, dims[0], dims[1]);
-    delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
+    Resource resource;
+    resource.read(filename);
+    delta = Array<complex<double>>(resource.getData(), Serializable::Mode::JSON);
     delta_old = delta;
-    delete [] dims;
-    delete [] delta_real_from_file;
+    unsigned int position = system_size/2;
+    delta_start = delta[{position,position}];
 }
+
+
+string Calculation::DeltaOutputFilename(const int nr_sc_loop)
+{
+    string nr_padded = to_string(nr_sc_loop);
+    nr_padded.insert(0, 3 - nr_padded.length(), '0');
+    return outputFileName + "_delta_" + nr_padded;
+}
+
 
 
 Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, unsigned int sizeX, unsigned int sizeY, 
