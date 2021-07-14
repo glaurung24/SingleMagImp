@@ -51,19 +51,18 @@ int main(int argc, char **argv){
 			unsigned int nr_phase = 32;
 				for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
 					double Vz = vz/8.0;
-					// double Mu = mu/2.0;
 					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
 					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size151_coupling_01_probeNew_flat"; // + "pos_" + to_string(pos) 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
+					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000";
 
 					if(!file_exists(outFile + ".hdf5"))
 					{
-						Calculation calc(outFile, complex<double>(Vz));
+						Calculation calc(delta_input_file, complex<double>(Vz));
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
-						calc.readDelta(0, delta_input_file + ".hdf5");
+						calc.readDelta(0, delta_input_file + ".json");
 						calc.WriteDelta(0);
 						// unsigned int position = calc.getSystemSize();
 						// calc.setTipPosition(position + pos);
@@ -76,8 +75,8 @@ int main(int argc, char **argv){
 						calc.WriteOutput();
 						
 					}
-				}
-			// }
+				// }
+			}
 			// old_outFile = outFile;
 		// }
 	}

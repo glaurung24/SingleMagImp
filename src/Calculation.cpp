@@ -15,6 +15,7 @@
 #include "TBTK/Resource.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
+#include "TBTK/FileReader.h"
 
 #include <complex>
 #include <math.h>
@@ -114,9 +115,41 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     symmetry_on = false;
     use_gpu = true;
 
-    outputFileName = outputfilename + ".hdf5";
+    outputFileName = outputfilename;
 }
 
+// void Calculation::readDelta(int nr_sc_loop, string filename = "")
+// {
+//     stringstream loopFileNameReal;
+
+//     if(nr_sc_loop < 10)
+//     {
+//         loopFileNameReal << "deltaReal" << nr_sc_loop;
+//     }
+//     else
+//     {
+//         loopFileNameReal << "deltaReal" << nr_sc_loop;
+//     }
+    
+
+//     if(filename == "")
+//     {
+//         filename = outputFileName;
+//     }
+
+    
+//     FileReader::setFileName(filename);
+//     double* delta_real_from_file = nullptr;
+//     int rank;
+//     int* dims;
+//     FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
+    
+//     Array<complex<double>> input = ConvertVectorToArray(delta_real_from_file, dims[0], dims[1]);
+//     delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
+//     delta_old = delta;
+//     delete [] dims;
+//     delete [] delta_real_from_file;
+// }
 
 void Calculation::readDelta(int nr_sc_loop, string filename = "")
 {
@@ -127,6 +160,7 @@ void Calculation::readDelta(int nr_sc_loop, string filename = "")
 
     Resource resource;
     resource.read(filename);
+    // delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
     delta = Array<complex<double>>(resource.getData(), Serializable::Mode::JSON);
     delta_old = delta;
     unsigned int position = system_size/2;
