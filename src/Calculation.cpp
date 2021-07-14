@@ -11,13 +11,13 @@
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
-#include "TBTK/FileWriter.h"
+#include "TBTK/Exporter.h"
+#include "TBTK/Resource.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
-#include "TBTK/FileReader.h"
 
 #include <complex>
-#include<math.h>
+#include <math.h>
 #include <cstdlib> 
 #include <ctime> 
 
@@ -137,7 +137,7 @@ void Calculation::readDelta(int nr_sc_loop, string filename = "")
     }
 
     
-    FileReader::setFileName(filename);
+    // FileReader::setFileName(filename);
     double* delta_real_from_file = nullptr;
     int rank;
     int* dims;
@@ -410,7 +410,7 @@ void Calculation::DoCalc()
 void Calculation::WriteOutputSc()
 {
 	PropertyExtractor::Diagonalizer pe(solver);
-    FileWriter::setFileName(outputFileName);
+    // FileWriter::setFileName(outputFileName);
 
     // const double UPPER_BOUND = 5; //10*abs(delta_start);
 	// const double LOWER_BOUND = -5; //-10*abs(delta_start);
@@ -425,7 +425,8 @@ void Calculation::WriteOutputSc()
 
 	//Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
-	FileWriter::writeEigenValues(ev);
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
 
 	// Extract LDOS and write to file
     // if(model_tip){
@@ -472,7 +473,7 @@ void Calculation::WriteOutputSc()
 void Calculation::WriteOutput()
 {
 	PropertyExtractor::ArnoldiIterator pe(Asolver);
-    FileWriter::setFileName(outputFileName);
+    // FileWriter::setFileName(outputFileName);
 
     // const double UPPER_BOUND = 2*abs(delta_start);
 	// const double LOWER_BOUND = -2*abs(delta_start);
@@ -487,7 +488,8 @@ void Calculation::WriteOutput()
 
 	//Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
-	FileWriter::writeEigenValues(ev);
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
 
 	// Extract LDOS and write to file
 
@@ -523,11 +525,24 @@ void Calculation::WriteOutput()
 
 void Calculation::WriteDelta(int nr_loop)
 {
-    FileWriter::setFileName(outputFileName);
-    const int RANK = 2;
-    int dims[RANK] = {system_size, system_size};
-    FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
-    FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
+    string filename = DeltaOutputFilename(nr_loop);
+    Exporter exporter;
+    exporter.save(GetRealVec(delta), filename + ".csv" );
+
+    if(nr_loop == 0)
+    {
+        string delta_out = delta.serialize(Serializable::Mode::JSON);
+        Resource resource;
+        resource.setData(delta_out);
+        resource.write(filename + ".json");
+    }
+
+
+    // FileWriter::setFileName(outputFileName);
+    // const int RANK = 2;
+    // int dims[RANK] = {system_size, system_size};
+    // FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
+    // FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
 
 }
 
