@@ -426,7 +426,7 @@ void Calculation::DoCalc()
     Asolver.setNumLanczosVectors(4000);
     Asolver.setMaxIterations(20000);
     Asolver.setNumEigenValues(2000);
-    Asolver.setCalculateEigenVectors(true);
+    Asolver.setCalculateEigenVectors(false);
     Asolver.setCentralValue(-0.01);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();

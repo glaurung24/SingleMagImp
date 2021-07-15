@@ -56,14 +56,14 @@ int main(int argc, char **argv){
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
 					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000";
 
-					if(!file_exists(outFile + ".hdf5"))
+					if(!file_exists(outFile))
 					{
-						Calculation calc(delta_input_file, complex<double>(Vz));
+						ofstream output(outFile);
+						Calculation calc(outFile, complex<double>(Vz));
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
 						calc.readDelta(0, delta_input_file + ".json");
-						calc.WriteDelta(0);
 						// unsigned int position = calc.getSystemSize();
 						// calc.setTipPosition(position + pos);
 						// }
