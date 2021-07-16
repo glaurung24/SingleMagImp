@@ -423,11 +423,11 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(4000);
+    Asolver.setNumLanczosVectors(3000);
     Asolver.setMaxIterations(20000);
-    Asolver.setNumEigenValues(2000);
+    Asolver.setNumEigenValues(1500);
     Asolver.setCalculateEigenVectors(false);
-    Asolver.setCentralValue(-0.01);
+    Asolver.setCentralValue(-0.1);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
 	Streams::out << "finished calc" << endl;
