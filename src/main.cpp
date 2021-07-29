@@ -69,7 +69,7 @@ int main(int argc, char **argv){
 	string outFile;
 	string outFile_old = "";
 	string delta_input_file;
-	for(int vz = 0; vz <= 32; vz++)
+	for(int vz = 0; vz <= 48; vz++)
 	{
 
 		double Vz = vz/16.0;
