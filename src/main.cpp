@@ -46,13 +46,13 @@ int main(int argc, char **argv){
 
 		for(int vz = 0; vz <= 24; vz++)
 		{
-			// for(unsigned int pos = 1; pos <= 10; pos++)
-			// {
+			for(unsigned int pos = 1; pos <= 10; pos++)
+			{
 			unsigned int nr_phase = 32;
 				for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
 					double Vz = vz/8.0;
 					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size151_coupling_10_probeNew_flat";//  + "pos_" + to_string(pos); 
+					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size151_coupling_10_probeNew_flat"  + "pos_" + to_string(pos) + "_additional"; 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
 					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000";
 
@@ -64,8 +64,8 @@ int main(int argc, char **argv){
 						// if(old_outFile != "")
 						// {
 						calc.readDelta(0, delta_input_file + ".json");
-						// unsigned int position = calc.getSystemSize();
-						// calc.setTipPosition(position + pos);
+						unsigned int position = calc.getSystemSize();
+						calc.setTipPosition(position + pos);
 						// }
 						calc.setPhase(phase);
 						calc.InitModel();
@@ -78,7 +78,7 @@ int main(int argc, char **argv){
 				}
 			//}
 			// old_outFile = outFile;
-		// }
+		}
 	}
 
 	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
