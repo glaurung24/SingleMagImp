@@ -356,7 +356,7 @@ void Calculation::DoScCalc()
     solver.setModel(model);
     solver.setScaleFactor(upper_energy_bound);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
-    solver.setGenerateGreensFunctionsOnGPU(true);
+    solver.setGenerateGreensFunctionsOnGPU(false);
     solver.setUseLookupTable(true);
     solver.setNumCoefficients(num_chebyshev_coeff);
     for(unsigned int i = 0; i < 200; i++)
