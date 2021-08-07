@@ -297,7 +297,7 @@ bool Calculation::selfConsistencyCallback()
         for(unsigned int y = position; y <= x; y++)
         {
             delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.7 + delta_old[{x , y}]*0.3);
-            if(abs((delta_temp[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
+            if(abs((delta_temp[{x , y}]-delta_old[{x , y}])) > diff)
             {
                 diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
             }
@@ -339,7 +339,7 @@ bool Calculation::selfConsistencyCallback()
 
 
     Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(diff) << endl;
-    if(diff < EPS)
+    if(diff < EPS*delta_start)
     {
         cout << "finished self consistency loop" << endl;
         return true;

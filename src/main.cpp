@@ -74,12 +74,9 @@ int main(int argc, char **argv){
 
 		double Vz = vz/16.0;
 		outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5"  + "_cheby_size251_sc";
-		delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
-
-		if(!file_exists(outFile + "_delta_000.json"))
+		if(!file_exists(outFile + "_new" + "_delta_000.json"))
 		{
-			Calculation calc(outFile, complex<double>(Vz));
-			cout << outFile_old << endl;
+			Calculation calc(outFile + "_new", complex<double>(Vz));
 			if(file_exists(outFile_old))
 			{
 				calc.readDelta(0, outFile_old);
