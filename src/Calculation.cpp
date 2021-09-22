@@ -109,7 +109,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     delta_old = delta;
     symmetry_on = false;
     use_gpu = true;
-    num_chebyshev_coeff = 25000;
+    num_chebyshev_coeff = 20000; //old: 25000
     num_energy_points = num_chebyshev_coeff * 2;
     lower_energy_bound = -7;
     upper_energy_bound = 7;
@@ -339,7 +339,7 @@ bool Calculation::selfConsistencyCallback()
 
 
     Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(diff) << endl;
-    if(diff < EPS*delta_start)
+    if(diff < abs(EPS*delta_start))
     {
         cout << "finished self consistency loop" << endl;
         return true;
