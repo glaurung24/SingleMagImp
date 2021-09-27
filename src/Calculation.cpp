@@ -91,7 +91,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
     model_tip = true;
-    flat_tip = true;
+    flat_tip = false;
 
     tip_position = system_size/2;
     
@@ -423,11 +423,11 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(600);
+    Asolver.setNumLanczosVectors(3200);
     Asolver.setMaxIterations(20000);
-    Asolver.setNumEigenValues(300);
+    Asolver.setNumEigenValues(1600);
     Asolver.setCalculateEigenVectors(false);
-    Asolver.setCentralValue(-0.001);
+    Asolver.setCentralValue(-0.005);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
 	Streams::out << "finished calc" << endl;
