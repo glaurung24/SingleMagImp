@@ -73,7 +73,7 @@ int main(int argc, char **argv){
 	{
 
 		double Vz = vz/16.0;
-		outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5"  + "_cheby_size251_sc";
+		outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5"  + "_cheby_size201_sc";
 		if(!file_exists(outFile + "_new" + "_delta_000.json"))
 		{
 			Calculation calc(outFile + "_new", complex<double>(Vz));

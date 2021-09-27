@@ -74,7 +74,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 250;
+    system_length = 200;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
@@ -296,7 +296,7 @@ bool Calculation::selfConsistencyCallback()
         #pragma omp parallel for
         for(unsigned int y = position; y <= x; y++)
         {
-            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.7 + delta_old[{x , y}]*0.3);
+            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential);
             if(abs((delta_temp[{x , y}]-delta_old[{x , y}])) > diff)
             {
                 diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
@@ -338,8 +338,8 @@ bool Calculation::selfConsistencyCallback()
     // }
 
 
-    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(diff) << endl;
-    if(diff < abs(EPS*delta_start))
+    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}]/delta_start)) << ", ddelta = " << to_string(real(diff/delta_start)) << endl;
+    if(abs(diff/delta_start) < EPS)
     {
         cout << "finished self consistency loop" << endl;
         return true;
