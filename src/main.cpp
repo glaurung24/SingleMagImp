@@ -44,30 +44,33 @@ int main(int argc, char **argv){
 		string outFile;
 		string delta_input_file;
 
-		for(int vz = 11; vz <= 15; vz++)
+		for(int vz = 11; vz <= 16; vz++)
 		{
-			for(unsigned int pos = 1; pos <= 4; pos++)
-			{
 			unsigned int nr_phase = 32;
 				for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
-					double Vz = vz/8.0;
 					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size151_coupling_10_probeNew2"  + "pos_" + to_string(pos) + "_additional"; 
+					double Vz = vz/8.0;
+
+					outFile = "vz_" + to_string(Vz) +   "_diag_size151_probeNew"  + "NoMagScDelta"; 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
 					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000";
 
 					if(!file_exists(outFile))
 					{
 						ofstream output(outFile);
-						Calculation calc(outFile, complex<double>(Vz));
+						Calculation calc(outFile, complex<double>(0));
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
 						calc.readDelta(0, delta_input_file + ".json");
-						unsigned int position = calc.getSystemSize()/2;
-						calc.setTipPosition(position + pos);
+						// unsigned int position = calc.getSystemSize()/2;
+						// calc.setTipPosition(position);
 						// }
 						calc.setPhase(phase);
+						// complex<double> delta_start = calc.getDeltaStart();
+						// complex<double> dD = delta_start*complex<double>(ddelta)/10.0;
+						// calc.setDeltaDelta(dD);
+						// cout << to_string(real(dD)) << endl;
 						calc.InitModel();
 						// calc.DoScCalc();
 						// calc.WriteOutputSc();
@@ -75,11 +78,10 @@ int main(int argc, char **argv){
 						calc.WriteOutput();
 						
 					}
-				}
-			//}
+			}
 			// old_outFile = outFile;
 		}
-	}
+	// }
 
 	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
 	// // {

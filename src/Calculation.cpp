@@ -29,6 +29,7 @@ complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
 complex<double> Calculation::delta_start;
+complex<double> Calculation::delta_Delta;
 complex<double> Calculation::coupling_potential;
 complex<double> Calculation::t_probe;
 complex<double> Calculation::t_probe_sample;
@@ -39,6 +40,7 @@ complex<double> Calculation::mu_probe;
 
 Calculation::FunctionDelta Calculation::functionDelta;
 Calculation::FunctionDeltaProbe Calculation::functionDeltaProbe;
+Calculation::FunctionDeltaDelta Calculation::functionDeltaDelta;
 Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
 const double Calculation::EPS = 1E-4;
@@ -89,6 +91,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     t_probe = t;
     t_probe_sample = 0.1*t;
     phase = 0;
+    delta_Delta = 0;
     delta_probe = delta_start*std::exp(I*phase);
     model_tip = true;
     flat_tip = false;
@@ -113,7 +116,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // } 
     delta_old = delta;
     symmetry_on = false;
-    use_gpu = true;
+    use_gpu = false;
 
     outputFileName = outputfilename;
 }
@@ -219,7 +222,13 @@ void Calculation::InitModel()
 //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
                 model << HoppingAmplitude(Calculation::functionDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
 
+//-------------------BCS interaction term impurity------------------------------------------
 
+//                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+                if(x == system_size/2 and  y == system_size/2)
+                {
+                    model << HoppingAmplitude(Calculation::functionDeltaDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
+                }
 //------------------------Nearest neighbour hopping term--------------------------------------
                 //Add hopping parameters corresponding to t
                 if(x == system_size - 1){
@@ -347,6 +356,25 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
         return -delta[{from_x, from_y}];
     case 3:
         return delta[{from_x, from_y}];
+    default:
+        Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
+        return 0;
+    }
+}
+
+complex<double> Calculation::FunctionDeltaDelta::getHoppingAmplitude(const Index& from, const Index& to) const
+{
+    unsigned int from_s = from.at(3);
+    switch(from_s)
+    {
+    case 0:
+        return -conj(delta_probe);
+    case 1:
+        return conj(delta_probe);
+    case 2:
+        return delta_probe;
+    case 3:
+        return -delta_probe;
     default:
         Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
         return 0;
@@ -658,6 +686,16 @@ void Calculation::setTipPosition(unsigned int position)
 unsigned int Calculation::getSystemSize()
 {
     return system_size;
+}
+
+complex<double> Calculation::getDeltaStart()
+{
+    return delta_start;
+}
+
+void Calculation::setDeltaDelta(complex<double> dD)
+{
+    delta_Delta = dD;
 }
 
 Array<complex<double>> Calculation::ConvertVectorToArray(const double *input, unsigned int sizeX, unsigned int sizeY)

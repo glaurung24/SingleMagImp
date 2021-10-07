@@ -39,6 +39,8 @@ class Calculation
         void readDelta(int, string);
         void WriteDelta(int);
         unsigned int getSystemSize();
+        complex<double> getDeltaStart();
+        void setDeltaDelta(complex<double>);
         string DeltaOutputFilename(const int nr_sc_loop);
 
 
@@ -69,6 +71,14 @@ class Calculation
             
         };
         static FunctionDeltaProbe functionDeltaProbe;
+
+        class FunctionDeltaDelta : 
+        public HoppingAmplitude::AmplitudeCallback
+        {
+                complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
+            
+        };
+        static FunctionDeltaDelta functionDeltaDelta;
         
         class SelfConsistencyCallback :
         public Solver::Diagonalizer::SelfConsistencyCallback
@@ -92,6 +102,7 @@ class Calculation
         static unsigned int probe_length;
         static complex<double> delta_start;
         static complex<double> delta_probe;
+        static complex<double> delta_Delta;
         static complex<double> coupling_potential;
 
         static const complex<double> I;
