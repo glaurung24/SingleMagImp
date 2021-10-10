@@ -40,20 +40,21 @@ int main(int argc, char **argv){
 
 	// for(int mu = 0; mu <= 8; mu++)
 	// {
-		// string old_outFile = "";
+		string old_outFile = "";
 		string outFile;
 		string delta_input_file;
-		for(int vz = 0; vz <= 16; vz++)
+		for(int vz = 44; vz <= 58; vz++)
 		{
-			unsigned int nr_phase = 16;
-			for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
-				double Vz = vz/8.0;
+			// unsigned int nr_phase = 16;
+			// for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+				double Vz = vz/32.0;
 				// double Mu = mu/2.0;
 				// double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-				double phase = 0;
-				outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size101_coupling_01_Full_probeNew_astmodel";
+				// double phase = 0;
+				outFile = "vz_" + to_string(Vz) + "_diag_size31";
+				// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size101_coupling_01_Full_probeNew_astmodel";
 				// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-		        // delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
+		        delta_input_file = "vz_" + to_string(Vz) + "_diag_size31";
 
 				if(!file_exists(outFile + ".hdf5"))
 				{
@@ -61,19 +62,22 @@ int main(int argc, char **argv){
 					// calc.setMu(Mu);
 					// if(old_outFile != "")
 					// {
-					// calc.readDelta(0, delta_input_file + ".hdf5");
-					calc.WriteDelta(0);
+					if(file_exists(old_outFile + ".hdf5")){
+						calc.readDelta(0, old_outFile + ".hdf5");
+					}
+					
+					// calc.WriteDelta(0);
 					// }
-					calc.setPhase(phase);
+					// calc.setPhase(phase);
 					calc.InitModel();
-					// calc.DoScCalc();
-					// calc.WriteOutputSc();
-					calc.DoCalc();
-					calc.WriteOutput();
+					calc.DoScCalc();
+					calc.WriteOutputSc();
+					// calc.DoCalc();
+					// calc.WriteOutput();
 					
 				}
-			}
-			// old_outFile = outFile;
+			// }
+			old_outFile = outFile;
 		// }
 	}
 

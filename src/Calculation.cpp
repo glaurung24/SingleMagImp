@@ -71,7 +71,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 100;
+    system_length = 30;
     system_size = system_length + 1;
 
     probe_length = system_length^2;
@@ -85,7 +85,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     t_sample_imp = 1.0*t;
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
-    model_tip = true;
+    model_tip = false;
     
 
     Vz = vz_input;
@@ -336,8 +336,8 @@ void Calculation::DoScCalc()
 {
     model.construct();
     solver.setModel(model);
-    // SelfConsistencyCallback selfConsistencyCallback;
-    // solver.setSelfConsistencyCallback(selfConsistencyCallback);
+    SelfConsistencyCallback selfConsistencyCallback;
+    solver.setSelfConsistencyCallback(selfConsistencyCallback);
     solver.setMaxIterations(100);
     solver.run();
 	Streams::out << "finished calc" << endl;
@@ -394,7 +394,7 @@ void Calculation::WriteOutputSc()
     // }
 
 
-//   WriteDelta(0);
+  WriteDelta(0);
 
 //   for(unsigned int spin = 0; spin < 4; spin++ )
 //   {
