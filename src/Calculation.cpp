@@ -312,7 +312,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     {
         for(unsigned int y = 0; y < system_size; y++)
         {
-            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.7 + delta_old[{x , y}]*0.3);
             if(abs((delta[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
             {
                 diff = abs(delta[{x , y}]-delta_old[{x , y}]);
@@ -321,7 +321,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     }
     diff = diff/abs(delta_start);
     Streams::out << "Updated delta, ddelta = " << to_string(diff) << endl;
-    if(diff < EPS)
+    if(diff < EPS*abs(delta_start))
     {
         return true;
     }
@@ -346,14 +346,16 @@ void Calculation::DoScCalc()
 void Calculation::DoCalc()
 {
     model.construct();
-    Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(4000);
-    Asolver.setMaxIterations(20000);
-    Asolver.setNumEigenValues(2000);
-    Asolver.setCalculateEigenVectors(false);
-    Asolver.setCentralValue(-0.01);
-    Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
-    Asolver.run();
+    // Asolver.setModel(model);
+    // Asolver.setNumLanczosVectors(4000);
+    // Asolver.setMaxIterations(20000);
+    // Asolver.setNumEigenValues(2000);
+    // Asolver.setCalculateEigenVectors(false);
+    // Asolver.setCentralValue(-0.01);
+    // Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+    // Asolver.run();
+    solver.setModel(model);
+    solver.run();
 	Streams::out << "finished calc" << endl;
 }
 
@@ -406,22 +408,23 @@ void Calculation::WriteOutputSc()
 
 
 
-//   int nr_excited_states = 30;
+  int nr_excited_states = 30;
 
-//   for(int i = 1; i <= nr_excited_states; i++){
-//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
-//           {{IDX_ALL, IDX_ALL, IDX_ALL}},
-//           {system_size*4+i-nr_excited_states/2}
-//       );
-//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+  for(int i = 1; i <= nr_excited_states; i++){
+      Property::WaveFunctions wf = pe.calculateWaveFunctions(
+          {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
+          {system_size*4+i-nr_excited_states/2}
+      );
+      FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
 
-//   }
+  }
 
 }
 
 void Calculation::WriteOutput()
 {
-	PropertyExtractor::ArnoldiIterator pe(Asolver);
+	// PropertyExtractor::ArnoldiIterator pe(Asolver);
+    PropertyExtractor::Diagonalizer pe(solver);
     FileWriter::setFileName(outputFileName);
 
     // const double UPPER_BOUND = 2*abs(delta_start);
@@ -441,23 +444,23 @@ void Calculation::WriteOutput()
 
 	// Extract LDOS and write to file
 
-    //     Property::LDOS ldos = pe.calculateLDOS(
-    //         {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
-    //         {1, system_size, system_size,	4}
-    //     );
-    //     FileWriter::writeLDOS(ldos);
+        Property::LDOS ldos = pe.calculateLDOS(
+            {0, IDX_X, IDX_Y, IDX_SUM_ALL},
+            {0, system_size, system_size,	4}
+        );
+        FileWriter::writeLDOS(ldos);
 
 
-//   int nr_excited_states = 150;
+  int nr_excited_states = 30;
 
-//   for(int i = 0; i < nr_excited_states; i++){
-//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
-//           {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
-//           {i}
-//       );
-//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+  for(int i = 1; i <= nr_excited_states; i++){
+      Property::WaveFunctions wf = pe.calculateWaveFunctions(
+          {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
+          {system_size*4+i-nr_excited_states/2}
+      );
+      FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
 
-//   }
+  }
 
 
 //   WriteDelta(0);
