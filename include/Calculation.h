@@ -35,10 +35,15 @@ class Calculation
         void setPhase(double);
         void setOutputFileName(string);
         void setcoupling_potential(complex<double>);
+        void setTipPosition(unsigned int);
         void AddDefects(int);
         void readDelta(int, string);
         void WriteDelta(int);
-        void runArnoldiIterator();
+        unsigned int getSystemSize();
+        complex<double> getDeltaStart();
+        void setDeltaDelta(complex<double>);
+        string DeltaOutputFilename(const int nr_sc_loop);
+	void runArnoldiIterator();
 
 
 
@@ -68,6 +73,14 @@ class Calculation
             
         };
         static FunctionDeltaProbe functionDeltaProbe;
+
+        class FunctionDeltaDelta : 
+        public HoppingAmplitude::AmplitudeCallback
+        {
+                complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
+            
+        };
+        static FunctionDeltaDelta functionDeltaDelta;
         
         class SelfConsistencyCallback :
         public Solver::Diagonalizer::SelfConsistencyCallback
@@ -80,6 +93,7 @@ class Calculation
 
         static unsigned int system_length;
         static unsigned int system_size;
+        static unsigned int tip_position;
         static unsigned int energy_points;
         static unsigned int chebychev_coefficients;
         static unsigned int max_arnoldi_iterations;
@@ -98,6 +112,7 @@ class Calculation
         static unsigned int probe_length;
         static complex<double> delta_start;
         static complex<double> delta_probe;
+        static complex<double> delta_Delta;
         static complex<double> coupling_potential;
 
         static const complex<double> I;
@@ -122,9 +137,10 @@ class Calculation
 
         static string outputFileName;
 
-        bool symmetry_on;
-        bool use_gpu;
-        bool model_tip;
+        static bool symmetry_on;
+        static bool use_gpu;
+        static bool model_tip;
+        static bool flat_tip;
         bool model_hubbard_model;
 
 

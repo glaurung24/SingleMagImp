@@ -11,6 +11,8 @@
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 //#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
+#include "TBTK/Exporter.h"
+#include "TBTK/Resource.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
@@ -18,7 +20,7 @@
 #include "TBTK/FileWriter.h"
 
 #include <complex>
-#include<math.h>
+#include <math.h>
 #include <cstdlib> 
 #include <ctime> 
 
@@ -31,10 +33,12 @@ unsigned int Calculation::num_eigenvals;
 unsigned int Calculation::num_lanczos_vecs;
 unsigned int Calculation::max_sc_iterations;
 double Calculation::energy_bandwidth;
+unsigned int Calculation::tip_position;
 complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
 complex<double> Calculation::delta_start;
+complex<double> Calculation::delta_Delta;
 complex<double> Calculation::coupling_potential;
 complex<double> Calculation::t_probe;
 complex<double> Calculation::t_probe_sample;
@@ -46,6 +50,7 @@ complex<double> Calculation::mu_probe;
 
 Calculation::FunctionDelta Calculation::functionDelta;
 Calculation::FunctionDeltaProbe Calculation::functionDeltaProbe;
+Calculation::FunctionDeltaDelta Calculation::functionDeltaDelta;
 Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
 const double Calculation::EPS = 1E-4;
@@ -53,6 +58,11 @@ const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 
 Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
+
+bool Calculation::symmetry_on;
+bool Calculation::use_gpu;
+bool Calculation::model_tip;
+bool Calculation::flat_tip;
 
 Solver::Diagonalizer Calculation::solver;
 Solver::ArnoldiIterator Calculation::Asolver;
@@ -79,22 +89,26 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 30;
+    system_length = 150;
     system_size = system_length + 1;
 
-    probe_length = system_length^2;
+    probe_length = system_size^2;
 
     delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
     t_probe = t;
-    t_probe_sample = 0.01*t;
+    t_probe_sample = 0.1*t;
     t_sample_imp = 1.0*t;
     phase = 0;
+    delta_Delta = 0;
     delta_probe = delta_start*std::exp(I*phase);
-    model_tip = false;
+    model_tip = true;
+    flat_tip = false;
     model_hubbard_model = false;
+
+    tip_position = system_size/2;
     
 
     Vz = vz_input;
@@ -127,7 +141,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     outputFileName = outputfilename + ".hdf5";
 }
 
-void Calculation::readDelta(int nr_sc_loop, string filename = "")
+void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
 {
     stringstream loopFileNameReal;
 
@@ -159,6 +173,31 @@ void Calculation::readDelta(int nr_sc_loop, string filename = "")
     delete [] dims;
     delete [] delta_real_from_file;
 }
+
+void Calculation::readDeltaJson(int nr_sc_loop, string filename = "")
+{
+    if( filename == "")
+    {
+        filename = DeltaOutputFilename(nr_sc_loop) + ".json";
+    }
+
+    Resource resource;
+    resource.read(filename);
+    // delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
+    delta = Array<complex<double>>(resource.getData(), Serializable::Mode::JSON);
+    delta_old = delta;
+    unsigned int position = system_size/2;
+    delta_start = delta[{position,position}];
+}
+
+
+string Calculation::DeltaOutputFilename(const int nr_sc_loop)
+{
+    string nr_padded = to_string(nr_sc_loop);
+    nr_padded.insert(0, 3 - nr_padded.length(), '0');
+    return outputFileName + "_delta_" + nr_padded;
+}
+
 
 
 Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, unsigned int sizeX, unsigned int sizeY, 
@@ -195,7 +234,7 @@ void Calculation::InitModel()
     if(model_hubbard_model)
     {
         system_index_imp = system_index_sub + 1;
-        system_index_tip = system_index_imp + 1;
+        system_index_tip = system_index_sub + 2;
     }
     else
     {       
@@ -217,7 +256,13 @@ void Calculation::InitModel()
 //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
                 model << HoppingAmplitude(Calculation::functionDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
 
+//-------------------BCS interaction term impurity------------------------------------------
 
+//                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+                if(x == system_size/2 and  y == system_size/2 and model_hubbard_model)
+                {
+                    model << HoppingAmplitude(Calculation::functionDeltaDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
+                }
 //------------------------Nearest neighbour hopping term--------------------------------------
                 //Add hopping parameters corresponding to t
                 if(x == system_size - 1){
@@ -259,29 +304,78 @@ void Calculation::InitModel()
     }
     if(model_tip)
     {
-        for(unsigned int s = 0; s < 2; s++){
-            model << HoppingAmplitude(-t_probe_sample,	{system_index_imp, position, position, s},	{system_index_tip, position, position, s}) + HC;
-            model << HoppingAmplitude(t_probe_sample,  {system_index_imp, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
-        
-            for(unsigned pos = system_index_tip; pos < probe_length; pos++){
-                if(pos+1 < probe_length){
-                    model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
-                    model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
-                }
-                model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
-                model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
+        unsigned int position = tip_position;
+        if(!flat_tip)
+        {
+            for(unsigned int s = 0; s < 2; s++){
+                model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+                model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+            
+                for(unsigned pos = 1; pos < probe_length; pos++){
+                    if(pos+1 < probe_length){
+                        model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
+                        model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
+                    }
+                    model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
+                    model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
 
-                // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
-                model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
+                    // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
+                    model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
+                }
+            }
+        }
+        else
+        {    
+            for(unsigned int s = 0; s < 2; s++){
+                model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+                model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+            }
+            for(unsigned int x = 0; x < system_size; x++){
+                for(unsigned int y = 0; y < system_size; y++){
+                    for(unsigned int s = 0; s < 2; s++){
+
+        //------------------------chemical Potential-----------------------------------
+                        //Add hopping amplitudes corresponding to chemical potential
+                        model << HoppingAmplitude(-mu,	{system_index_tip,x, y, s},	{system_index_tip,x, y, s});
+                        model << HoppingAmplitude(mu,	{system_index_tip,x, y, s+2},	{system_index_tip,x, y, s+2});
+
+        //-------------------BCS interaction term------------------------------------------
+
+        //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+                        model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip,x,y,s}, {system_index_tip,x,y,(3-s)}) + HC;
+
+
+        //------------------------Nearest neighbour hopping term--------------------------------------
+                        //Add hopping parameters corresponding to t
+                        if(x == system_size - 1){
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,	{system_index_tip,x, y, s+2},{system_index_tip,(x+1)%system_size, y, s+2}) + HC;
+                        }
+                        else
+                        {
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,	{system_index_tip,(x+1)%system_size, y, s+2},{system_index_tip,x, y, s+2}) + HC;
+                        }
+                        
+                        if(y == system_size - 1){
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip, x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
+                        }
+                        else
+                        {
+                            model << HoppingAmplitude(-t_probe,	{system_index_tip,x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
+                            model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
+                        }
+
+                    }
+                }
             }
         }
     }
-    
 
 
-
-    model.construct();
-    solver.setModel(model);
+    //   model.construct(); //TODO check if this line is still necessary
+    //   solver.setModel(model);
     // solver.setMaxIterations(1000);
     // solver.setScaleFactor(10);
     // solver.setNumCoefficients(1000);
@@ -305,6 +399,25 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
         return -delta[{from_x, from_y}];
     case 3:
         return delta[{from_x, from_y}];
+    default:
+        Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
+        return 0;
+    }
+}
+
+complex<double> Calculation::FunctionDeltaDelta::getHoppingAmplitude(const Index& from, const Index& to) const
+{
+    unsigned int from_s = from.at(3);
+    switch(from_s)
+    {
+    case 0:
+        return -conj(delta_probe);
+    case 1:
+        return conj(delta_probe);
+    case 2:
+        return delta_probe;
+    case 3:
+        return -delta_probe;
     default:
         Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
         return 0;
@@ -344,20 +457,19 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     pe.setEnergyWindow(-10, 0, 1000);
 
 
-    #pragma omp parallel // num_threads( 4 )
-    #pragma omp for
+//    #pragma omp parallel // num_threads( 4 ) //TODO test paralelization
+//    #pragma omp for
     for(unsigned int x=0; x < system_size; x++)
     {
         for(unsigned int y = 0; y < system_size; y++)
         {
-            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.7 + delta_old[{x , y}]*0.3);
+            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
             if(abs((delta[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
             {
                 diff = abs(delta[{x , y}]-delta_old[{x , y}]);
             }
         }
     }
-
     diff = diff/abs(delta_start);
     Streams::out << "Updated delta, ddelta = " << to_string(diff) << endl;
     if(diff < EPS*abs(delta_start))
@@ -392,16 +504,14 @@ void Calculation::DoScCalc()
 void Calculation::DoCalc()
 {
     model.construct();
-    // Asolver.setModel(model);
-    // Asolver.setNumLanczosVectors(4000);
-    // Asolver.setMaxIterations(20000);
-    // Asolver.setNumEigenValues(2000);
-    // Asolver.setCalculateEigenVectors(false);
-    // Asolver.setCentralValue(-0.01);
-    // Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
-    // Asolver.run();
-    solver.setModel(model);
-    solver.run();
+    Asolver.setModel(model);
+    Asolver.setNumLanczosVectors(3200);
+    Asolver.setMaxIterations(20000);
+    Asolver.setNumEigenValues(1600);
+    Asolver.setCalculateEigenVectors(false);
+    Asolver.setCentralValue(-0.005);
+    Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+    Asolver.run();
 	Streams::out << "finished calc" << endl;
 }
 
@@ -411,6 +521,7 @@ void Calculation::WriteOutputSc()
     // Exporter exporter;
     // exporter.setFormat(Exporter::Format::ColumnMajor);
     PropertyExtractor::Diagonalizer pe(solver);
+    // FileWriter::setFileName(outputFileName);
 
     // const double UPPER_BOUND = 5; //10*abs(delta_start);
 	// const double LOWER_BOUND = -5; //-10*abs(delta_start);
@@ -424,7 +535,10 @@ void Calculation::WriteOutputSc()
 	Property::DOS dos = pe.calculateDOS();
 	FileWriter::writeDOS(dos);
 
-    cout << "@write out" << system_size  << endl;
+	//Extract eigen values and write these to file
+	Property::EigenValues ev = pe.getEigenValues();
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
 
     // Extract LDOS and write to file
     // if(model_tip){
@@ -456,15 +570,17 @@ void Calculation::WriteOutputSc()
 
 
 
-  int nr_excited_states = 30;
+//   int nr_excited_states = 30;
 
-  for(int i = 1; i <= nr_excited_states; i++){
-      Property::WaveFunctions wf = pe.calculateWaveFunctions(
-          {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
-          {system_size*4+i-nr_excited_states/2}
-      );
-      FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
-   }
+//   for(int i = 1; i <= nr_excited_states; i++){
+//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
+//           {{IDX_ALL, IDX_ALL, IDX_ALL}},
+//           {system_size*4+i-nr_excited_states/2}
+//       );
+//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+
+//   }
+
 }
 
 
@@ -498,18 +614,24 @@ void Calculation::WriteOutput()
 
 	//Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
-	FileWriter::writeEigenValues(ev);
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
 
 	// Extract LDOS and write to file
 
-        Property::LDOS ldos = pe.calculateLDOS(
-            {0, IDX_X, IDX_Y, IDX_SUM_ALL},
-            {0, system_size, system_size,	4}
-        );
-        FileWriter::writeLDOS(ldos);
+        // Property::LDOS ldos = pe.calculateLDOS(
+        //     {IDX_Z, IDX_X, IDX_Y, IDX_SUM_ALL},
+        //     {1, system_size, system_size,	4}
+        // );
+        // FileWriter::writeLDOS(ldos);
 
+	// Extract LDOS and write to file
 
-  int nr_excited_states = num_eigenvals;
+        // Property::LDOS ldos = pe.calculateLDOS({
+        //     {0, system_size/2, system_size/2, IDX_SUM_ALL},
+        //     {1, system_size/2, system_size/2, IDX_SUM_ALL},
+        // });
+        // FileWriter::writeLDOS(ldos);
 
   for(int i = 1; i <= nr_excited_states; i++){
       Property::WaveFunctions wf = pe.calculateWaveFunctions(
@@ -517,8 +639,18 @@ void Calculation::WriteOutput()
           {system_size*4+i-nr_excited_states/2}
       );
       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+	}
 
-  }
+//   int nr_excited_states = 150;
+
+//   for(int i = 0; i < nr_excited_states; i++){
+//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
+//           {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+//           {i}
+//       );
+//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+
+//   }
 
 
 //   WriteDelta(0);
@@ -538,15 +670,25 @@ void Calculation::runArnoldiIterator()
 
 void Calculation::WriteDelta(int nr_loop)
 {
-    // Exporter exporter;
-    // exporter.setFormat(Exporter::Format::ColumnMajor);
-    // exporter.save(delta, "delta.csv");
-    cout << "@write out delta" << system_size  << endl;
-    FileWriter::setFileName(outputFileName);
-    const int RANK = 2;
-    int dims[RANK] = {system_size, system_size};
-    FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
-    FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
+    string filename = DeltaOutputFilename(nr_loop);
+    Exporter exporter;
+    exporter.save(GetRealVec(delta), filename + ".csv" );
+
+    if(nr_loop == 0)
+    {
+        string delta_out = delta.serialize(Serializable::Mode::JSON);
+        Resource resource;
+        resource.setData(delta_out);
+        resource.write(filename + ".json");
+    }
+
+
+    // FileWriter::setFileName(outputFileName);
+    // const int RANK = 2;
+    // int dims[RANK] = {system_size, system_size};
+    // FileWriter::write(GetRealVec(delta).getData().getData(), RANK, dims, "deltaReal" + to_string(nr_loop));
+    // FileWriter::write(GetImagVec(delta).getData().getData(), RANK, dims, "deltaImag" + to_string(nr_loop));
+
 }
 
 Array<double> Calculation::GetRealVec(Array<complex<double>> input)
@@ -631,6 +773,26 @@ void Calculation::setOutputFileName(string input)
 void Calculation::setcoupling_potential(complex<double> input)
 {
   coupling_potential = input;
+}
+
+void Calculation::setTipPosition(unsigned int position)
+{
+    tip_position = position;
+}
+
+unsigned int Calculation::getSystemSize()
+{
+    return system_size;
+}
+
+complex<double> Calculation::getDeltaStart()
+{
+    return delta_start;
+}
+
+void Calculation::setDeltaDelta(complex<double> dD)
+{
+    delta_Delta = dD;
 }
 
 Array<complex<double>> Calculation::ConvertVectorToArray(const double *input, unsigned int sizeX, unsigned int sizeY)
