@@ -24,27 +24,83 @@
 
 #include "TBTK/Streams.h"
 #include "Calculation.h"
-#include <iostream>
+#include <math.h>
+#include <string>
+#include <sys/stat.h>
 
 using namespace std;
 using namespace TBTK;
 
+inline bool file_exists (const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
+
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
 
-	for(int vz = 0; vz <= 40; vz++)
-	{
-		string outFile = "vz_" + to_string(vz/10.0) + "_chebychev";
-		fstream fileStream;
-		fileStream.open(outFile + ".hdf5");
-		if(fileStream.fail())
-      	{
-			Calculation calc(outFile, complex<double>(vz));
-			calc.InitModel();
-			calc.DoScCalc();
-			calc.WriteOutput();
-		}
+	// for(int mu = 0; mu <= 8; mu++)
+	// {
+		string old_outFile = "";
+		string outFile;
+		string outFile2;
+		string delta_input_file;
+		unsigned int nr_phase = 16;
+		for(int vz = 8; vz <= 29; vz++)
+		{
+			for( int pos = 1; pos <= 5; pos++)
+			{
+				for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+					double Vz = vz/16.0;
+					// double Mu = mu/2.0;
+					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
+					// double phase = 0;
+					// outFile = "vz_" + to_string(Vz) + "_diag_size31_nosc";
+					// outFile2 = "vz_" + to_string(Vz) + "_diag_size21";
+					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "phase_" + to_string(phase) + "_diag_size151_coupling_10_probeNew_pos_" + to_string(pos);
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
+					delta_input_file = "vz_" + to_string(Vz) + "_diag_size31";
+
+					if(!file_exists(outFile + ".hdf5"))
+					{
+						// Vz = 0;	
+						Calculation calc(outFile, complex<double>(Vz));
+						// calc.setMu(Mu);
+						// if(old_outFile != "")
+						// {
+						// if(file_exists(old_outFile + ".hdf5")){
+						// 	calc.readDelta(0, old_outFile + ".hdf5");
+						// }
+						
+						// calc.WriteDelta(0);
+						// }
+						calc.setPhase(phase);
+						calc.InitModel();
+						// calc.DoScCalc();
+						calc.WriteOutputSc();
+						calc.DoCalc();
+						calc.WriteOutput();
+						
+					}
+				}
+			}
+			// old_outFile = outFile2;
+		// }
 	}
+
+	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
+	// // {
+	// 	string outFile = "coupling_" + to_string(coupling) + "_diag_size21";
+	// 	fstream fileStream;
+	// 	fileStream.open(outFile + ".hdf5");
+	// 	if(fileStream.fail())
+    //   	{
+	// 		Calculation calc(outFile, coupling);
+	// 		calc.InitModel();
+	// 		calc.DoScCalc();
+	// 		calc.WriteOutput();
+	// 	}
+	// // }
 
 
 
