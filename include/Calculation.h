@@ -125,6 +125,7 @@ class Calculation
         bool symmetry_on;
         bool use_gpu;
         bool model_tip;
+        bool model_hubbard_model;
 
 
         Model model;

@@ -94,6 +94,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     phase = 0;
     delta_probe = delta_start*std::exp(I*phase);
     model_tip = false;
+    model_hubbard_model = false;
     
 
     Vz = vz_input;
@@ -188,7 +189,20 @@ void Calculation::InitModel()
 
     // Indeces: sample:0, tip: 1, x, y, spin
     unsigned int system_index_sub = 0; //0 for the substrae, 1 for the tip
-    unsigned int system_index_imp = 1;
+    unsigned int system_index_imp;
+    unsigned int system_index_tip;
+
+    if(model_hubbard_model)
+    {
+        system_index_imp = system_index_sub + 1;
+        system_index_tip = system_index_imp + 1;
+    }
+    else
+    {       
+        system_index_imp = system_index_sub;
+        system_index_tip = system_index_sub + 1;
+    }
+    unsigned int position = system_size/2;
     for(unsigned int x = 0; x < system_size; x++){
         for(unsigned int y = 0; y < system_size; y++){
             for(unsigned int s = 0; s < 2; s++){
@@ -228,22 +242,23 @@ void Calculation::InitModel()
                 
 
 //---------------------------Zeeman term------------------------------------------
-                if(x == system_size/2 and  y == system_size/2)
+                if(x == position and  y == position)
                 {
                     model << HoppingAmplitude(Vz*2.0*(0.5-s), {system_index_imp,x, y, s}, {system_index_imp, x, y, s});
                     model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_imp,x, y, s+2}, {system_index_imp,x, y, s+2});
-                    model << HoppingAmplitude(-mu,	{system_index_imp,x, y, s},	{system_index_imp,x, y, s});
-                    model << HoppingAmplitude(mu,	{system_index_imp,x, y, s+2},	{system_index_imp,x, y, s+2});
-                    model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, x, y, s},	{system_index_imp, x, y, s}) + HC;
-                    model << HoppingAmplitude(t_sample_imp,  {system_index_sub, x, y, s+2}, {system_index_imp, x, y, s+2}) + HC;
+                    if(model_hubbard_model)
+                    {
+                        model << HoppingAmplitude(-mu,	{system_index_imp,x, y, s},	{system_index_imp,x, y, s});
+                        model << HoppingAmplitude(mu,	{system_index_imp,x, y, s+2},	{system_index_imp,x, y, s+2});
+                        model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, x, y, s},	{system_index_imp, x, y, s}) + HC;
+                        model << HoppingAmplitude(t_sample_imp,  {system_index_sub, x, y, s+2}, {system_index_imp, x, y, s+2}) + HC;
+                    }
                 }
             }
         }
     }
-    unsigned int system_index_tip = 2;
     if(model_tip)
     {
-        unsigned int position = system_size/2;
         for(unsigned int s = 0; s < 2; s++){
             model << HoppingAmplitude(-t_probe_sample,	{system_index_imp, position, position, s},	{system_index_tip, position, position, s}) + HC;
             model << HoppingAmplitude(t_probe_sample,  {system_index_imp, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
