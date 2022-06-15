@@ -134,11 +134,11 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     energy_bandwidth = 8;
     max_sc_iterations = 300;
 
-    max_arnoldi_iterations = 4000;
-    num_eigenvals = 30;
+    max_arnoldi_iterations = 20000;
+    num_eigenvals = 2000;
     num_lanczos_vecs = 2*num_eigenvals;
 
-    outputFileName = outputfilename + ".hdf5";
+    // outputFileName = outputfilename + ".hdf5";
 }
 
 void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
@@ -373,13 +373,12 @@ void Calculation::InitModel()
         }
     }
 
-
     //   model.construct(); //TODO check if this line is still necessary
     //   solver.setModel(model);
     // solver.setMaxIterations(1000);
     // solver.setScaleFactor(10);
     // solver.setNumCoefficients(1000);
-    // solver.setUseLookupTable(true);
+    // solver.setUseLookupTable(true); 
 }
 
 
@@ -446,7 +445,6 @@ complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index
 
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 {
-//    return true; //TODO
     PropertyExtractor::Diagonalizer pe(solver);
     // PropertyExtractor::ChebyshevExpander pe(solver);
 
@@ -505,9 +503,9 @@ void Calculation::DoCalc()
 {
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(3200);
-    Asolver.setMaxIterations(20000);
-    Asolver.setNumEigenValues(1600);
+    Asolver.setNumLanczosVectors(num_lanczos_vecs);
+    Asolver.setMaxIterations(max_arnoldi_iterations);
+    Asolver.setNumEigenValues(num_eigenvals);
     Asolver.setCalculateEigenVectors(false);
     Asolver.setCentralValue(-0.005);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
@@ -633,13 +631,15 @@ void Calculation::WriteOutput()
         // });
         // FileWriter::writeLDOS(ldos);
 
-  for(int i = 1; i <= nr_excited_states; i++){
-      Property::WaveFunctions wf = pe.calculateWaveFunctions(
-          {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
-          {system_size*4+i-nr_excited_states/2}
-      );
-      FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
-	}
+//     int nr_excited_states = 30;
+
+//   for(int i = 1; i <= nr_excited_states; i++){
+//       Property::WaveFunctions wf = pe.calculateWaveFunctions(
+//           {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
+//           {system_size*4+i-nr_excited_states/2}
+//       );
+//       FileWriter::writeWaveFunctions(wf, "WaveFunction_" + to_string(i));
+// 	}
 
 //   int nr_excited_states = 150;
 
@@ -653,7 +653,7 @@ void Calculation::WriteOutput()
 //   }
 
 
-//   WriteDelta(0);
+   WriteDelta(0);
 }
 
 void Calculation::runArnoldiIterator()

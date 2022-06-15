@@ -37,7 +37,8 @@ class Calculation
         void setcoupling_potential(complex<double>);
         void setTipPosition(unsigned int);
         void AddDefects(int);
-        void readDelta(int, string);
+        void readDeltaHdf5(int, string);
+        void readDeltaJson(int, string);
         void WriteDelta(int);
         unsigned int getSystemSize();
         complex<double> getDeltaStart();

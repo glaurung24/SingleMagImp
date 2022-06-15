@@ -45,26 +45,28 @@ int main(int argc, char **argv){
 		string outFile;
 		string outFile2;
 		string delta_input_file;
-
-		for(int vz = 11; vz <= 16; vz++)
+		for(int pos = 1; pos <= 5; pos++)
+		{
+		for(int vz = 0; vz <= 16; vz++)
 		{
 			unsigned int nr_phase = 32;
 				for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
 					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
 					double Vz = vz/8.0;
 
-					outFile = "vz_" + to_string(Vz) +   "_diag_size151_probeNew"  + "NoMagScDelta"; 
+					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) +  "_diag_size151_probeNew"  + "Pos_" + to_string(pos); 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000";
+					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
 
 					if(!file_exists(outFile))
 					{
 						ofstream output(outFile);
 						Calculation calc(outFile, complex<double>(0));
+						calc.setTipPosition(pos);
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
-						calc.readDelta(0, delta_input_file + ".json");
+						calc.readDeltaHdf5(0, delta_input_file + ".hdf5");
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
 						// }
@@ -83,7 +85,8 @@ int main(int argc, char **argv){
 			}
 			// old_outFile = outFile;
 		}
-	// }
+		}
+	}
 
 	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
 	// // {
