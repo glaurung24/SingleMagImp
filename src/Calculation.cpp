@@ -135,10 +135,10 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     max_sc_iterations = 300;
 
     max_arnoldi_iterations = 20000;
-    num_eigenvals = 2000;
+    num_eigenvals = 1500;
     num_lanczos_vecs = 2*num_eigenvals;
 
-    // outputFileName = outputfilename + ".hdf5";
+    outputFileName = outputfilename;
 }
 
 void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
