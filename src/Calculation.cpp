@@ -16,16 +16,18 @@
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
-#include "TBTK/FileReader.h"
-#include "TBTK/FileWriter.h"
+// #include "TBTK/FileReader.h"
+// #include "TBTK/FileWriter.h"
 
 #include <complex>
 #include <math.h>
 #include <cstdlib> 
 #include <ctime> 
+#include <vector>
 
 unsigned int Calculation::system_length;
 unsigned int Calculation::system_size;
+unsigned int Calculation::delta_simulation_size;
 unsigned int Calculation::energy_points;
 unsigned int Calculation::chebychev_coefficients;
 unsigned int Calculation::max_arnoldi_iterations;
@@ -56,7 +58,7 @@ Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 const double Calculation::EPS = 1E-4;
 const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 
-Array<complex<double>> Calculation::delta;
+TBTK::Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
 
 bool Calculation::symmetry_on;
@@ -90,6 +92,7 @@ Calculation::~Calculation()
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
     system_length = 150;
+    delta_simulation_size = 31;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
@@ -141,63 +144,115 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     outputFileName = outputfilename;
 }
 
-void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
-{
-    stringstream loopFileNameReal;
+// void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
+// {
+//     stringstream loopFileNameReal;
 
-    if(nr_sc_loop < 10)
-    {
-        loopFileNameReal << "deltaReal" << nr_sc_loop;
-    }
-    else
-    {
-        loopFileNameReal << "deltaReal" << nr_sc_loop;
-    }
+//     if(nr_sc_loop < 10)
+//     {
+//         loopFileNameReal << "deltaReal" << nr_sc_loop;
+//     }
+//     else
+//     {
+//         loopFileNameReal << "deltaReal" << nr_sc_loop;
+//     }
     
 
-    if(filename == "")
-    {
-        filename = outputFileName;
-    }
+//     if(filename == "")
+//     {
+//         filename = outputFileName;
+//     }
 
     
-    FileReader::setFileName(filename);
-    double* delta_real_from_file = nullptr;
-    int rank;
-    int* dims;
-    FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
+//     FileReader::setFileName(filename + ".hdf5");
+//     double* delta_real_from_file = nullptr;
+//     int rank;
+//     int* dims;
+//     FileReader::read(&delta_real_from_file, &rank, &dims, loopFileNameReal.str());
     
-    Array<complex<double>> input = ConvertVectorToArray(delta_real_from_file, dims[0], dims[1]);
-    delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
-    delta_old = delta;
-    delete [] dims;
-    delete [] delta_real_from_file;
-}
+//     Array<complex<double>> input = ConvertVectorToArray(delta_real_from_file, dims[0], dims[1]);
+//     delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
+//     delta_old = delta;
+//     delete [] dims;
+//     delete [] delta_real_from_file;
+// }
 
 void Calculation::readDeltaJson(int nr_sc_loop, string filename = "")
 {
     if( filename == "")
     {
-        filename = DeltaOutputFilename(nr_sc_loop) + ".json";
+        filename = DeltaOutputFilename(nr_sc_loop, filename) + ".json";
     }
 
     Resource resource;
     resource.read(filename);
-    // delta = deltaPadding(input, system_size, system_size, dims[0], dims[1]);
-    delta = Array<complex<double>>(resource.getData(), Serializable::Mode::JSON);
+    cout << resource.getData() << endl;
+    Array<double> input(resource.getData(), Serializable::Mode::JSON);
+    delta = deltaPadding(input);
     delta_old = delta;
-    unsigned int position = system_size/2;
-    delta_start = delta[{position,position}];
+    // unsigned int position = system_size/2;
+    // delta_start = delta[{position,position}];
+}
+
+void Calculation::readDeltaCsv(int nr_sc_loop, string filename = "")
+{
+    if( filename == "")
+    {
+        filename = DeltaOutputFilename(nr_sc_loop, filename) + ".csv";
+    }
+
+    Array<double> input = DeltaFromCsv(filename);
+    delta = deltaPadding(input);
+    delta_old = delta;
+    // unsigned int position = system_size/2;
+    // delta_start = delta[{position,position}];
 }
 
 
-string Calculation::DeltaOutputFilename(const int nr_sc_loop)
+string Calculation::DeltaOutputFilename(const int &nr_sc_loop, const string& filename = "" )
 {
     string nr_padded = to_string(nr_sc_loop);
     nr_padded.insert(0, 3 - nr_padded.length(), '0');
-    return outputFileName + "_delta_" + nr_padded;
+    if(filename != "")
+    {
+        return filename + "_delta_" + nr_padded;
+    }
+    else
+    {
+        return outputFileName + "_delta_" + nr_padded;
+    }
+    
 }
 
+Array<double> Calculation::realArray(const Array<complex<double>>& input)
+{
+    Array<double> out = Array<double>({input.getRanges()[0], input.getRanges()[1]}, 0);
+    for(unsigned int i=0; i < input.getRanges()[0]; i++)
+    {
+        for(unsigned int j=0; j < input.getRanges()[1]; j++)
+        {
+            out[{i,j}] = real(input[{i,j}]);
+        }
+    }
+    return out;
+}
+
+Array<complex<double>> Calculation::deltaPadding(const Array<double>& input)
+{
+    unsigned int sizeX_input = input.getRanges()[0];
+    unsigned int sizeY_input = input.getRanges()[1];
+    unsigned int marginX = (system_size - sizeX_input)/2;
+    unsigned int marginY = (system_size - sizeY_input)/2;
+    Array<complex<double>> out = Array<complex<double>>({system_size, system_size}, delta_start);
+    for(unsigned int i=0; i < sizeX_input; i++)
+    {
+        for(unsigned int j=0; j < sizeY_input; j++)
+        {
+            out[{i+marginX,j+marginY}] = input[j+i*sizeY_input];
+        }
+    }
+    return out;
+}
 
 
 Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, unsigned int sizeX, unsigned int sizeY, 
@@ -527,11 +582,11 @@ void Calculation::WriteOutputSc()
 	// pe.setEnergyWindow(LOWER_BOUND, UPPER_BOUND, RESOLUTION);
 
 
-    FileWriter::setFileName(outputFileName);
+    // FileWriter::setFileName(outputFileName);
 
   //Extract DOS and write to file
 	Property::DOS dos = pe.calculateDOS();
-	FileWriter::writeDOS(dos);
+	// FileWriter::writeDOS(dos);
 
 	//Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
@@ -584,9 +639,9 @@ void Calculation::WriteOutputSc()
 
 void Calculation::WriteOutput()
 {
-    PropertyExtractor::ArnoldiIterator pe(Asolver);
+    // PropertyExtractor::ArnoldiIterator pe(Asolver);
     // PropertyExtractor::Diagonalizer pe(solver);
-    FileWriter::setFileName(outputFileName);
+    // FileWriter::setFileName(outputFileName);
 
     // const double UPPER_BOUND = 2*abs(delta_start);
 	// const double LOWER_BOUND = -2*abs(delta_start);
@@ -611,9 +666,9 @@ void Calculation::WriteOutput()
 	// FileWriter::writeDOS(dos);
 
 	//Extract eigen values and write these to file
-	Property::EigenValues ev = pe.getEigenValues();
-    Exporter exporter;
-    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
+	// Property::EigenValues ev = pe.getEigenValues();
+    // Exporter exporter;
+    // exporter.save(ev, outputFileName + "Eigenvalues.csv" );
 
 	// Extract LDOS and write to file
 
@@ -676,12 +731,12 @@ void Calculation::WriteDelta(int nr_loop)
 
     if(nr_loop == 0)
     {
-        string delta_out = delta.serialize(Serializable::Mode::JSON);
+        Array<double> delta_real = realArray(delta);
+        string delta_out = delta_real.serialize(Serializable::Mode::JSON);
         Resource resource;
         resource.setData(delta_out);
         resource.write(filename + ".json");
     }
-
 
     // FileWriter::setFileName(outputFileName);
     // const int RANK = 2;
@@ -795,9 +850,9 @@ void Calculation::setDeltaDelta(complex<double> dD)
     delta_Delta = dD;
 }
 
-Array<complex<double>> Calculation::ConvertVectorToArray(const double *input, unsigned int sizeX, unsigned int sizeY)
+Array<double> Calculation::ConvertVectorToArray(const double *input, unsigned int sizeX, unsigned int sizeY)
 {
-    Array<complex<double>> out = Array<complex<double>>({sizeX, sizeX}, 0);
+    Array<double> out = Array<double>({sizeX, sizeX}, 0);
     
     for(unsigned int i=0; i < sizeX; i++)
     {
@@ -807,4 +862,31 @@ Array<complex<double>> Calculation::ConvertVectorToArray(const double *input, un
         }
     }
     return out;
+}
+
+
+Array<double> Calculation::DeltaFromCsv(const string& filename)
+{
+    vector<double> temp_vec;
+    std::ifstream csv_file(filename);
+    string line;
+
+    while(csv_file.good())
+    {
+        getline(csv_file, line);
+        try
+        {
+            temp_vec.push_back(stod(line));
+        }
+        catch(const std::invalid_argument& e)
+        {
+            std::cerr << line << '\n';
+        }
+    }
+    if(temp_vec.size() != delta_simulation_size*delta_simulation_size)
+    {
+        TBTKExit("Calculation::DeltaFromCsv", "Wrong size of delta input file", "Check if datapoints agree with size " + to_string(delta_simulation_size));
+    }
+
+    return ConvertVectorToArray(temp_vec.data(), delta_simulation_size, delta_simulation_size);
 }

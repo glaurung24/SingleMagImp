@@ -37,13 +37,14 @@ class Calculation
         void setcoupling_potential(complex<double>);
         void setTipPosition(unsigned int);
         void AddDefects(int);
-        void readDeltaHdf5(int, string);
+        // void readDeltaHdf5(int, string);
+        void readDeltaCsv(int, string);
         void readDeltaJson(int, string);
         void WriteDelta(int);
         unsigned int getSystemSize();
         complex<double> getDeltaStart();
         void setDeltaDelta(complex<double>);
-        string DeltaOutputFilename(const int nr_sc_loop);
+        string DeltaOutputFilename(const int& nr_sc_loop, const string& filename);
 	void runArnoldiIterator();
 
 
@@ -54,10 +55,14 @@ class Calculation
 
         
         Array<double> GetRealVec(Array<complex<double>>);
-        Array<double> GetImagVec(Array<complex<double>> );
+        Array<double> GetImagVec(Array<complex<double>>);
+        Array<double> realArray(const Array<complex<double>>&);
+        Array<double> DeltaFromCsv(const string&);
         Array<complex<double>> CalculateChargeDensity(unsigned int);
-        Array<complex<double>> ConvertVectorToArray(const double *, unsigned int, unsigned int);
+        Array<double> ConvertVectorToArray(const double *, unsigned int, unsigned int);
         Array<complex<double>> deltaPadding(Array<complex<double>>, unsigned int, unsigned int, unsigned int, unsigned int);
+        Array<complex<double>> deltaPadding(const Array<double>&);
+        
 
         class FunctionDelta : 
         public HoppingAmplitude::AmplitudeCallback
@@ -93,6 +98,7 @@ class Calculation
         static SelfConsistencyCallback selfConsistencyCallback;
 
         static unsigned int system_length;
+        static unsigned int delta_simulation_size;
         static unsigned int system_size;
         static unsigned int tip_position;
         static unsigned int energy_points;

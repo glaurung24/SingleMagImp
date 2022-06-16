@@ -56,7 +56,7 @@ int main(int argc, char **argv){
 
 					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) +  "_diag_size151_probeNew"  + "Pos_" + to_string(pos); 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21";
+					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000.csv";
 
 					if(!file_exists(outFile))
 					{
@@ -66,7 +66,7 @@ int main(int argc, char **argv){
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
-						calc.readDeltaHdf5(0, delta_input_file + ".hdf5");
+						calc.readDeltaCsv(0, delta_input_file);
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
 						// }
@@ -80,6 +80,7 @@ int main(int argc, char **argv){
 						// calc.WriteOutputSc();
 						calc.DoCalc();
 						calc.WriteOutput();
+						// calc.WriteDelta(0);
 						
 					}
 			}
