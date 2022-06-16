@@ -639,7 +639,7 @@ void Calculation::WriteOutputSc()
 
 void Calculation::WriteOutput()
 {
-    // PropertyExtractor::ArnoldiIterator pe(Asolver);
+    PropertyExtractor::ArnoldiIterator pe(Asolver);
     // PropertyExtractor::Diagonalizer pe(solver);
     // FileWriter::setFileName(outputFileName);
 
