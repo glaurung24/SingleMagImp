@@ -665,10 +665,10 @@ void Calculation::WriteOutput()
 	// Property::DOS dos = pe.calculateDOS();
 	// FileWriter::writeDOS(dos);
 
-	//Extract eigen values and write these to file
-	// Property::EigenValues ev = pe.getEigenValues();
-    // Exporter exporter;
-    // exporter.save(ev, outputFileName + "Eigenvalues.csv" );
+	// Extract eigen values and write these to file
+	Property::EigenValues ev = pe.getEigenValues();
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
 
 	// Extract LDOS and write to file
 
