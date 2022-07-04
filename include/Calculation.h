@@ -1,14 +1,20 @@
-#ifndef CALCULATION_H
-#define CALCULATION_H
+#pragma once
+
+#ifndef GPU_CALCULATION
+#define GPU_CALCULATION
 
 #include <complex>
 
 #include "TBTK/Model.h"
-#include "TBTK/Solver/Diagonalizer.h"
+
+#ifdef GPU_CALCULATION
 #include "TBTK/Solver/ChebyshevExpander.h"
-#include "TBTK/Solver/ArnoldiIterator.h"
-#include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#else
+#include "TBTK/PropertyExtractor/Diagonalizer.h"
+#include "TBTK/Solver/Diagonalizer.h"
+#endif
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Array.h"
 
@@ -36,6 +42,7 @@ class Calculation
         void setOutputFileName(string);
         void setcoupling_potential(complex<double>);
         void setTipPosition(unsigned int);
+	void setSystem_length(unsigned int);
         void AddDefects(int);
         // void readDeltaHdf5(int, string);
         void readDeltaCsv(int, string);
@@ -89,12 +96,21 @@ class Calculation
         static FunctionDeltaDelta functionDeltaDelta;
         
         class SelfConsistencyCallback :
+	#ifdef GPU_CALCULATION
+        public Solver::ChebyshevExpander::SelfConsistencyCallback
+        {
+                public:
+                bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
+                // bool selfConsistencyCallback(Solver::Diagonalizer &solver);       
+        };
+	#else
         public Solver::Diagonalizer::SelfConsistencyCallback
         {
                 public:
                 bool selfConsistencyCallback(Solver::Diagonalizer &solver);
                 
         };
+	#endif
         static SelfConsistencyCallback selfConsistencyCallback;
 
         static unsigned int system_length;
@@ -103,6 +119,8 @@ class Calculation
         static unsigned int tip_position;
         static unsigned int energy_points;
         static unsigned int chebychev_coefficients;
+        static double lower_energy_bound;
+        static double upper_energy_bound;
         static unsigned int max_arnoldi_iterations;
         static unsigned int num_eigenvals;
         static unsigned int num_lanczos_vecs;
@@ -125,20 +143,13 @@ class Calculation
         static const complex<double> I;
         static const double EPS;
 
-        static Solver::Diagonalizer solver;
         static Solver::ArnoldiIterator Asolver;
-
-        // class SelfConsistencyCallback :
-        // public Solver::ChebyshevExpander::SelfConsistencyCallback
-        // {
-        //         public:
-        //         bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
-        //         // bool selfConsistencyCallback(Solver::Diagonalizer &solver);
-                
-        // };
-        // static SelfConsistencyCallback selfConsistencyCallback;
-
-        //static Solver::ChebyshevExpander solver;
+        #ifdef GPU_CALCULATION
+        static Solver::ChebyshevExpander solver;
+        #else
+        static Solver::Diagonalizer solver;
+        #endif
+        
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;
 

@@ -1,23 +1,27 @@
 #include "Calculation.h"
 
 #include "TBTK/Model.h"
-#include "TBTK/Solver/Diagonalizer.h"
+#ifdef GPU_CALCULATION
 #include "TBTK/Solver/ChebyshevExpander.h"
+#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#else
+#include "TBTK/Solver/Diagonalizer.h"
+#include "TBTK/PropertyExtractor/Diagonalizer.h"
+#endif
+
 #include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/Property/DOS.h"
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
 #include "TBTK/Property/LDOS.h"
-#include "TBTK/PropertyExtractor/Diagonalizer.h"
-//#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
 #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
-#include "TBTK/Exporter.h"
-#include "TBTK/Resource.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
+#include "TBTK/Resource.h"
 // #include "TBTK/FileReader.h"
 // #include "TBTK/FileWriter.h"
+
 
 #include <complex>
 #include <math.h>
@@ -66,9 +70,13 @@ bool Calculation::use_gpu;
 bool Calculation::model_tip;
 bool Calculation::flat_tip;
 
-Solver::Diagonalizer Calculation::solver;
 Solver::ArnoldiIterator Calculation::Asolver;
-// Solver::ChebyshevExpander Calculation::solver;
+
+#ifdef GPU_CALCULATION
+Solver::ChebyshevExpander Calculation::solver;
+#else
+Solver::Diagonalizer Calculation::solver;
+#endif
 
 string Calculation::outputFileName = "";
 
@@ -129,11 +137,17 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
         
     //     }
     // } 
+
     delta_old = delta;
     symmetry_on = false;
+    #ifdef GPU_CALCULATION
+    use_gpu = true;
+    chebychev_coefficients = 20000; //old: 25000
+    energy_points = chebychev_coefficients * 2;
+    #else
     use_gpu = false;
-    chebychev_coefficients = 1000;
-    energy_points = 2*chebychev_coefficients;
+    #endif
+
     energy_bandwidth = 8;
     max_sc_iterations = 300;
 
@@ -142,6 +156,14 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     num_lanczos_vecs = 2*num_eigenvals;
 
     outputFileName = outputfilename;
+}
+
+
+void Calculation::setSystem_length(unsigned int lenght)
+{
+    system_length = lenght;
+    system_size = system_length + 1;
+    delta = Array<complex<double>>({system_size, system_size}, delta_start);
 }
 
 // void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
@@ -427,13 +449,6 @@ void Calculation::InitModel()
             }
         }
     }
-
-    //   model.construct(); //TODO check if this line is still necessary
-    //   solver.setModel(model);
-    // solver.setMaxIterations(1000);
-    // solver.setScaleFactor(10);
-    // solver.setNumCoefficients(1000);
-    // solver.setUseLookupTable(true); 
 }
 
 
@@ -500,33 +515,65 @@ complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index
 
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 {
+    #ifdef GPU_CALCULATION
+    PropertyExtractor::ChebyshevExpander pe(solver);
+    #else
     PropertyExtractor::Diagonalizer pe(solver);
-    // PropertyExtractor::ChebyshevExpander pe(solver);
+    #endif 
 
-	pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
+    pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
+
+
+
+
+
 
     delta_old = delta;
+    Array<complex<double>> delta_temp = delta;
     double diff = 0.0;
-    pe.setEnergyWindow(-10, 0, 1000);
 
-
-//    #pragma omp parallel // num_threads( 4 ) //TODO test paralelization
-//    #pragma omp for
-    for(unsigned int x=0; x < system_size; x++)
+    unsigned int position = system_size/2;
+    for(unsigned int x=position; x < system_size; x++)
     {
-        for(unsigned int y = 0; y < system_size; y++)
+
+        #pragma omp parallel for
+        for(unsigned int y = position; y <= x; y++)
         {
-            delta[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
-            if(abs((delta[{x , y}]-delta_old[{x , y}])/delta_start) > diff)
+            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+            if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/delta_start > diff)
             {
-                diff = abs(delta[{x , y}]-delta_old[{x , y}]);
+                diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
             }
         }
     }
     diff = diff/abs(delta_start);
-    Streams::out << "Updated delta, ddelta = " << to_string(diff) << endl;
-    if(diff < EPS*abs(delta_start))
+
+    for(unsigned int x=position; x < system_size; x++)
     {
+        for(unsigned int y = position; y <= x; y++)
+        {
+            //Upper half
+            //right
+            delta[{x , y}] = delta_temp[{x , y}];
+            delta[{y , x}] = delta_temp[{x , y}];
+            //left
+            delta[{2*position-x , y}] = delta_temp[{x , y}];
+            delta[{y , 2*position-x}] = delta_temp[{x , y}];
+            //Lower half
+            //left
+            delta[{2*position-x , 2*position-y}] = delta_temp[{x , y}];
+            delta[{2*position-y , 2*position-x}] = delta_temp[{x , y}];
+            //right
+            delta[{x , 2*position-y}] = delta_temp[{x , y}];
+            delta[{2*position-y , x}] = delta_temp[{x , y}];
+        }
+    }
+
+
+    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}]/delta_start)) << ", ddelta = " << to_string(real(diff/delta_start)) << endl;
+    if(abs(diff/delta_start) < EPS)
+    {
+        cout << "finished self consistency loop" << endl;
         return true;
     }
     else
@@ -539,10 +586,12 @@ void Calculation::DoScCalc()
 {
     model.construct();
     solver.setModel(model);
-    // solver.setScaleFactor(4*energy_bandwidth);
-    // solver.setNumCoefficients(chebychev_coefficients);
-    // solver.setUseLookupTable(use_gpu);
-    // solver.setCalculateCoefficientsOnGPU(use_gpu);
+    #ifdef GPU_CALCULATION
+    solver.setScaleFactor(4*energy_bandwidth);
+    solver.setNumCoefficients(chebychev_coefficients);
+    solver.setUseLookupTable(use_gpu);
+    solver.setCalculateCoefficientsOnGPU(use_gpu);
+    #endif
     cout << "@sc calc" << system_size  << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_sc_iterations; loop_counter++)
     {
@@ -573,7 +622,13 @@ void Calculation::WriteOutputSc()
     // PropertyExtractor::ChebyshevExpander pe(solver);
     // Exporter exporter;
     // exporter.setFormat(Exporter::Format::ColumnMajor);
+    #ifndef GPU_CALCULATION 
     PropertyExtractor::Diagonalizer pe(solver);
+    //Extract eigen values and write these to file
+    Property::EigenValues ev = pe.getEigenValues();
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
+    #endif
     // FileWriter::setFileName(outputFileName);
 
     // const double UPPER_BOUND = 5; //10*abs(delta_start);
@@ -585,13 +640,10 @@ void Calculation::WriteOutputSc()
     // FileWriter::setFileName(outputFileName);
 
   //Extract DOS and write to file
-	Property::DOS dos = pe.calculateDOS();
+	// Property::DOS dos = pe.calculateDOS();
 	// FileWriter::writeDOS(dos);
 
-	//Extract eigen values and write these to file
-	Property::EigenValues ev = pe.getEigenValues();
-    Exporter exporter;
-    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
+
 
     // Extract LDOS and write to file
     // if(model_tip){

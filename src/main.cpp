@@ -88,24 +88,8 @@ int main(int argc, char **argv){
 		}
 		}
 	// }
-
-	// // for(double coupling = 0.0; coupling <= 3.0; coupling = coupling + 0.05)
-	// // {
-	// 	string outFile = "coupling_" + to_string(coupling) + "_diag_size21";
-	// 	fstream fileStream;
-	// 	fileStream.open(outFile + ".hdf5");
-	// 	if(fileStream.fail())
-    //   	{
-	// 		Calculation calc(outFile, coupling);
-	// 		calc.InitModel();
-	// 		calc.DoScCalc();
-	// 		calc.WriteOutput();
-	// 	}
-	// // }
-
-
-
 	Streams::closeLog();
 
 	return 0;
 }
+
