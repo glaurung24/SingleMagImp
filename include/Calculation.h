@@ -1,15 +1,21 @@
-#ifndef CALCULATION_H
-#define CALCULATION_H
+#pragma once
+
+#ifndef GPU_CALCULATION
+#define GPU_CALCULATION
 
 #include <complex>
 
 #include "TBTK/Model.h"
-#include "TBTK/Solver/Diagonalizer.h"
+
+#ifdef GPU_CALCULATION
 #include "TBTK/Solver/ChebyshevExpander.h"
-//#include "TBTK/Solver/ArnoldiIterator.h"
-#include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
-// #include "TBTK/PropertyExtractor/ArnoldiIterator.h"
+#else
+#include "TBTK/PropertyExtractor/Diagonalizer.h"
+#include "TBTK/Solver/Diagonalizer.h"
+#endif
+#include "TBTK/Solver/ArnoldiIterator.h"
+#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Array.h"
 
 
@@ -101,9 +107,13 @@ class Calculation
         static const complex<double> I;
         static const double EPS;
 
-        // static Solver::Diagonalizer solver;
-        // static Solver::ArnoldiIterator Asolver;
+        static Solver::ArnoldiIterator Asolver;
+        #ifdef GPU_CALCULATION
         static Solver::ChebyshevExpander solver;
+        #else
+        static Solver::Diagonalizer solver;
+        #endif
+        
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;
 

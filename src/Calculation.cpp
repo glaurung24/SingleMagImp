@@ -1,16 +1,20 @@
 #include "Calculation.h"
 
 #include "TBTK/Model.h"
-#include "TBTK/Solver/Diagonalizer.h"
+#ifdef GPU_CALCULATION
 #include "TBTK/Solver/ChebyshevExpander.h"
-// #include "TBTK/Solver/ArnoldiIterator.h"
+#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#else
+#include "TBTK/Solver/Diagonalizer.h"
+#include "TBTK/PropertyExtractor/Diagonalizer.h"
+#endif
+
+#include "TBTK/Solver/ArnoldiIterator.h"
 #include "TBTK/Property/DOS.h"
 #include "TBTK/Property/EigenValues.h"
 #include "TBTK/Property/WaveFunctions.h"
 #include "TBTK/Property/LDOS.h"
-#include "TBTK/PropertyExtractor/Diagonalizer.h"
-#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
-//#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
+#include "TBTK/PropertyExtractor/ArnoldiIterator.h"
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
@@ -49,9 +53,14 @@ const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
 
-// Solver::Diagonalizer Calculation::solver;
-// Solver::ArnoldiIterator Calculation::Asolver;
+
+Solver::ArnoldiIterator Calculation::Asolver;
+
+#ifdef GPU_CALCULATION
 Solver::ChebyshevExpander Calculation::solver;
+#else
+Solver::Diagonalizer Calculation::solver;
+#endif
 
 string Calculation::outputFileName = "";
 
@@ -108,9 +117,13 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
 
     delta_old = delta;
     symmetry_on = false;
+    #ifdef GPU_CALCULATION
     use_gpu = true;
     num_chebyshev_coeff = 20000; //old: 25000
     num_energy_points = num_chebyshev_coeff * 2;
+    #else
+    use_gpu = false;
+    #endif
     lower_energy_bound = -7;
     upper_energy_bound = 7;
 
