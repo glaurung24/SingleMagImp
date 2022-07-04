@@ -49,9 +49,9 @@ int main(int argc, char **argv){
 		{
 		for(int vz = 0; vz <= 16; vz++)
 		{
-			unsigned int nr_phase = 32;
-				for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
-					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
+			// unsigned int nr_phase = 32;
+				// for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+					// double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
 					double Vz = vz/8.0;
 
 					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "size31_sc"; 
@@ -83,7 +83,7 @@ int main(int argc, char **argv){
 						// calc.WriteDelta(0);
 						
 					}
-			}
+			// }
 			// old_outFile = outFile;
 		}
 		}

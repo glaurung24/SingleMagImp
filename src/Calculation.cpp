@@ -512,8 +512,11 @@ complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index
     }
 }
 
-
+#ifdef GPU_CALCULATION
+bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
+#else
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
+#endif 
 {
     #ifdef GPU_CALCULATION
     PropertyExtractor::ChebyshevExpander pe(solver);
