@@ -164,5 +164,3 @@ class Calculation
 
         Model model;
 };
-
-#endif // CALCULATION_H

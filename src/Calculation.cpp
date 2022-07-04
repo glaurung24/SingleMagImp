@@ -540,7 +540,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
         for(unsigned int y = position; y <= x; y++)
         {
             delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
-            if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/delta_start > diff)
+            if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/abs(delta_start) > diff)
             {
                 diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
             }
