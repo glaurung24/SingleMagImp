@@ -99,7 +99,7 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 150;
+    system_length = 30;
     delta_simulation_size = 31;
     system_size = system_length + 1;
 
@@ -115,7 +115,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     phase = 0;
     delta_Delta = 0;
     delta_probe = delta_start*std::exp(I*phase);
-    model_tip = true;
+    model_tip = false;
     flat_tip = false;
     model_hubbard_model = false;
 

@@ -41,10 +41,10 @@ int main(int argc, char **argv){
 
 	// for(int mu = 0; mu <= 8; mu++)
 	// {
-		string old_outFile = "";
+		// string old_outFile = "";
 		string outFile;
-		string outFile2;
-		string delta_input_file;
+		// string outFile2;
+		// string delta_input_file;
 		for(int pos = 1; pos <= 5; pos++)
 		{
 		for(int vz = 0; vz <= 16; vz++)
@@ -54,30 +54,30 @@ int main(int argc, char **argv){
 					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
 					double Vz = vz/8.0;
 
-					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) +  "_diag_size151_probeNew"  + "Pos_" + to_string(pos); 
+					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "size31_sc"; 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-					delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000.csv";
+					// delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000.csv";
 
 					if(!file_exists(outFile))
 					{
 						ofstream output(outFile);
-						Calculation calc(outFile, complex<double>(0));
-						calc.setTipPosition(pos);
+						Calculation calc(outFile, complex<double>(Vz));
+						// calc.setTipPosition(pos);
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
-						calc.readDeltaCsv(0, delta_input_file);
+						// calc.readDeltaCsv(0, delta_input_file);
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
 						// }
-						calc.setPhase(phase);
+						// calc.setPhase(phase);
 						// complex<double> delta_start = calc.getDeltaStart();
 						// complex<double> dD = delta_start*complex<double>(ddelta)/10.0;
 						// calc.setDeltaDelta(dD);
 						// cout << to_string(real(dD)) << endl;
 						calc.InitModel();
-						// calc.DoScCalc();
-						// calc.WriteOutputSc();
+						calc.DoScCalc();
+						calc.WriteOutputSc();
 						calc.DoCalc();
 						calc.WriteOutput();
 						// calc.WriteDelta(0);
