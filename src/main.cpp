@@ -45,45 +45,45 @@ int main(int argc, char **argv){
 		string outFile;
 		// string outFile2;
 		// string delta_input_file;
-		for(int pos = 1; pos <= 5; pos++)
+		for(int pos = 0; pos <= 5; pos++)
 		{
-		for(int vz = 0; vz <= 16; vz++)
+		for(int vz = 0; vz <= 64; vz++)
 		{
-			// unsigned int nr_phase = 32;
-				// for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
-					// double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-					double Vz = vz/8.0;
+			unsigned int nr_phase = 32;
+			    for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
+					double Vz = vz/32.0;
 
-					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "size31_sc"; 
+					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos); 
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-					// delta_input_file = "vz_" + to_string(Vz) + "_diag_size21_delta_000.csv";
+					string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "size51_sc";
 
-					if(!file_exists(outFile))
+					if(!file_exists(outFile) & file_exists(delta_input_file + "_delta_000.csv"))
 					{
 						ofstream output(outFile);
 						Calculation calc(outFile, complex<double>(Vz));
-						// calc.setTipPosition(pos);
+						calc.setTipPosition(pos);
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
-						// calc.readDeltaCsv(0, delta_input_file);
+						calc.readDeltaCsv(0, delta_input_file);
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
 						// }
-						// calc.setPhase(phase);
+						calc.setPhase(phase);
 						// complex<double> delta_start = calc.getDeltaStart();
 						// complex<double> dD = delta_start*complex<double>(ddelta)/10.0;
 						// calc.setDeltaDelta(dD);
-						// cout << to_string(real(dD)) << endl;
+						//  cout << to_string(real(dD)) << endl;
 						calc.InitModel();
-						calc.DoScCalc();
-						calc.WriteOutputSc();
+						// calc.DoScCalc();
+						// calc.WriteOutputSc();
 						calc.DoCalc();
 						calc.WriteOutput();
 						// calc.WriteDelta(0);
 						
 					}
-			// }
+			}
 			// old_outFile = outFile;
 		}
 		}

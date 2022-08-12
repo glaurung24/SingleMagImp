@@ -1,6 +1,6 @@
 #pragma once
 
-#define GPU_CALCULATION
+// #define GPU_CALCULATION
 
 #include <complex>
 
@@ -93,22 +93,19 @@ class Calculation
             
         };
         static FunctionDeltaDelta functionDeltaDelta;
-        
-        
+
 	#ifdef GPU_CALCULATION
-    class SelfConsistencyCallback :
-        public Solver::ChebyshevExpander::SelfConsistencyCallback
-        {
-                public:
+    class SelfConsistencyCallback
+	{
+		public:
                 bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
-                // bool selfConsistencyCallback(Solver::Diagonalizer &solver);       
         };
         static SelfConsistencyCallback selfConsistencyCallback;
 	#else
     class SelfConsistencyCallback :
         public Solver::Diagonalizer::SelfConsistencyCallback
         {
-                public:
+		public:
                 bool selfConsistencyCallback(Solver::Diagonalizer &solver);
                 
         };

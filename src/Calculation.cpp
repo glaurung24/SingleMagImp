@@ -99,13 +99,13 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 30;
-    delta_simulation_size = 31;
+    system_length = 150;
+    delta_simulation_size = 51;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
 
-    delta_start = 0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.1155; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -115,7 +115,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     phase = 0;
     delta_Delta = 0;
     delta_probe = delta_start*std::exp(I*phase);
-    model_tip = false;
+    model_tip = true;
     flat_tip = false;
     model_hubbard_model = false;
 
@@ -819,7 +819,11 @@ Array<double> Calculation::GetRealVec(Array<complex<double>> input)
 
 Array<complex<double>> Calculation::CalculateChargeDensity(unsigned int spin)
 {
-    PropertyExtractor::Diagonalizer pe(solver);
+    #ifdef GPU_CALCULATION
+	PropertyExtractor::ChebyshevExpander pe(solver);
+    #else
+	PropertyExtractor::Diagonalizer pe(solver);
+    #endif
     pe.setEnergyWindow(-10, 0, 1000);
     Array<complex<double>> charge({system_size, system_size});
     for(unsigned int x=0; x < system_size; x++)
