@@ -100,12 +100,12 @@ Calculation::~Calculation()
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
     system_length = 150;
-    delta_simulation_size = 51;
+    delta_simulation_size = 151;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
 
-    delta_start = 0.1155; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_start = 0.115490; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -115,7 +115,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     phase = 0;
     delta_Delta = 0;
     delta_probe = delta_start*std::exp(I*phase);
-    model_tip = true;
+    model_tip = false;
     flat_tip = false;
     model_hubbard_model = false;
 

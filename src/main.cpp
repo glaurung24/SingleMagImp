@@ -47,22 +47,25 @@ int main(int argc, char **argv){
 		// string delta_input_file;
 		for(int pos = 0; pos <= 5; pos++)
 		{
-		for(int vz = 0; vz <= 64; vz++)
-		{
-			unsigned int nr_phase = 32;
-			    for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+		// for(int vz = 0; vz <= 64; vz++)
+		// {
+			unsigned int nr_phase = 64;
+			  for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
 					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
-					double Vz = vz/32.0;
+					// double phase = 0;
+					// int pos = 0;
+			
+					double Vz = 1.599609;//vz/32.0;
 
 					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos); 
-					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size21noSc";
-					string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "size51_sc";
-
-					if(!file_exists(outFile) & file_exists(delta_input_file + "_delta_000.csv"))
+					
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size51_sc";
+					string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "phase_0.000000" + "_diag_size151_probeNewPos_0_" + "delta_000.csv";
+					if(!file_exists(outFile) & file_exists(delta_input_file))
 					{
 						ofstream output(outFile);
 						Calculation calc(outFile, complex<double>(Vz));
-						calc.setTipPosition(pos);
+						// calc.setTipPosition(pos);
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
@@ -70,7 +73,7 @@ int main(int argc, char **argv){
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
 						// }
-						calc.setPhase(phase);
+						// calc.setPhase(phase);
 						// complex<double> delta_start = calc.getDeltaStart();
 						// complex<double> dD = delta_start*complex<double>(ddelta)/10.0;
 						// calc.setDeltaDelta(dD);
@@ -83,7 +86,7 @@ int main(int argc, char **argv){
 						// calc.WriteDelta(0);
 						
 					}
-			}
+			//}
 			// old_outFile = outFile;
 		}
 		}
