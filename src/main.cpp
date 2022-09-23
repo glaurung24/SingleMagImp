@@ -45,19 +45,20 @@ int main(int argc, char **argv){
 		string outFile;
 		// string outFile2;
 		// string delta_input_file;
-		for(int pos = 0; pos <= 5; pos++)
-		{
-		// for(int vz = 0; vz <= 64; vz++)
+		// for(int pos = 0; pos <= 5; pos++)
 		// {
-			unsigned int nr_phase = 64;
-			  for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
-					double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
+		for(int vz = 0; vz <= 128; vz++)
+		{
+			// unsigned int nr_phase = 64;
+			//   for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
+			// 		double phase = static_cast<double>(phase_calc)/nr_phase*M_PI;
 					// double phase = 0;
 					// int pos = 0;
-			
-					double Vz = 1.599609;//vz/32.0;
+					double Vz = vz/64.0;
+					// double Vz = 1.599609;//vz/32.0;
 
-					outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos); 
+					// outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos); 
+					outFile = "vz_" + to_string(Vz) +  "Eigenstates_calc"; 
 					
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size51_sc";
 					string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "phase_0.000000" + "_diag_size151_probeNewPos_0_" + "delta_000.csv";
@@ -81,15 +82,16 @@ int main(int argc, char **argv){
 						calc.InitModel();
 						// calc.DoScCalc();
 						// calc.WriteOutputSc();
-						calc.DoCalc();
-						calc.WriteOutput();
+						// calc.DoCalc();
+						// calc.WriteOutput();
+						calc.CalcEigenstates();
 						// calc.WriteDelta(0);
 						
 					}
 			//}
 			// old_outFile = outFile;
 		}
-		}
+		// }
 	// }
 	Streams::closeLog();
 

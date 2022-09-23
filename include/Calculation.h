@@ -52,6 +52,7 @@ class Calculation
         void setDeltaDelta(complex<double>);
         string DeltaOutputFilename(const int& nr_sc_loop, const string& filename);
 	void runArnoldiIterator();
+        void CalcEigenstates();
 
 
 

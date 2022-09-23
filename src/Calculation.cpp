@@ -18,7 +18,7 @@
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
-#include "TBTK/Resource.h"
+// #include "TBTK/Resource.h"
 // #include "TBTK/FileReader.h"
 // #include "TBTK/FileWriter.h"
 
@@ -28,6 +28,7 @@
 #include <cstdlib> 
 #include <ctime> 
 #include <vector>
+#include <fstream>
 
 unsigned int Calculation::system_length;
 unsigned int Calculation::system_size;
@@ -199,22 +200,22 @@ void Calculation::setSystem_length(unsigned int lenght)
 //     delete [] delta_real_from_file;
 // }
 
-void Calculation::readDeltaJson(int nr_sc_loop, string filename = "")
-{
-    if( filename == "")
-    {
-        filename = DeltaOutputFilename(nr_sc_loop, filename) + ".json";
-    }
+// void Calculation::readDeltaJson(int nr_sc_loop, string filename = "")
+// {
+//     if( filename == "")
+//     {
+//         filename = DeltaOutputFilename(nr_sc_loop, filename) + ".json";
+//     }
 
-    Resource resource;
-    resource.read(filename);
-    cout << resource.getData() << endl;
-    Array<double> input(resource.getData(), Serializable::Mode::JSON);
-    delta = deltaPadding(input);
-    delta_old = delta;
-    // unsigned int position = system_size/2;
-    // delta_start = delta[{position,position}];
-}
+//     Resource resource;
+//     resource.read(filename);
+//     cout << resource.getData() << endl;
+//     Array<double> input(resource.getData(), Serializable::Mode::JSON);
+//     delta = deltaPadding(input);
+//     delta_old = delta;
+//     // unsigned int position = system_size/2;
+//     // delta_start = delta[{position,position}];
+// }
 
 void Calculation::readDeltaCsv(int nr_sc_loop, string filename = "")
 {
@@ -620,6 +621,66 @@ void Calculation::DoCalc()
 	Streams::out << "finished calc" << endl;
 }
 
+void Calculation::CalcEigenstates()
+{
+    int nr_excited_states = 10;
+
+    model.construct();
+    Asolver.setModel(model);
+    Asolver.setNumLanczosVectors(10*nr_excited_states);
+    Asolver.setMaxIterations(max_arnoldi_iterations);
+    Asolver.setNumEigenValues(nr_excited_states);
+    Asolver.setCalculateEigenVectors(true);
+    Asolver.setCentralValue(-0.001);
+    Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
+    Asolver.run();
+	Streams::out << "finished calc" << endl;
+
+    PropertyExtractor::ArnoldiIterator pe(Asolver);
+
+	// Extract eigen values and write these to file
+	Property::EigenValues ev = pe.getEigenValues();
+    Exporter exporter;
+    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
+
+
+    vector<string> spin = {"e_up", "e_down", "h_up", "h_down"};
+
+
+    Property::WaveFunctions wf = pe.calculateWaveFunctions(
+          {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
+        //   {system_size*4+i-nr_excited_states/2}
+         {IDX_ALL}
+      );
+
+  for(int j = 0; j < nr_excited_states; j++){
+      for(unsigned i = 0; i < spin.size(); i++)
+      {
+        ofstream output_real;
+        output_real.open(outputFileName + "WaveFunction_" + spin[i] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+        ofstream output_imag;
+        output_imag.open(outputFileName + "WaveFunction_" + spin[i] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+        for(int y = 0; y < system_size; y++)
+        {
+            for(int x = 0; x < system_size; x++)
+            {
+                output_real << real(wf({0,x,y,i}, j));
+                output_imag << real(wf({0,x,y,i}, j));
+                if(x < system_size - 1)
+                {
+                    output_real << ",";
+                    output_imag << ",";
+                }   
+            }
+            output_real << endl;
+            output_imag << endl;
+        }
+        output_real.close();
+        output_imag.close();
+      }
+	}
+}
+
 void Calculation::WriteOutputSc()
 {
     // PropertyExtractor::ChebyshevExpander pe(solver);
@@ -784,14 +845,14 @@ void Calculation::WriteDelta(int nr_loop)
     Exporter exporter;
     exporter.save(GetRealVec(delta), filename + ".csv" );
 
-    if(nr_loop == 0)
-    {
-        Array<double> delta_real = realArray(delta);
-        string delta_out = delta_real.serialize(Serializable::Mode::JSON);
-        Resource resource;
-        resource.setData(delta_out);
-        resource.write(filename + ".json");
-    }
+    // if(nr_loop == 0)
+    // {
+    //     Array<double> delta_real = realArray(delta);
+    //     string delta_out = delta_real.serialize(Serializable::Mode::JSON);
+    //     Resource resource;
+    //     resource.setData(delta_out);
+    //     resource.write(filename + ".json");
+    // }
 
     // FileWriter::setFileName(outputFileName);
     // const int RANK = 2;
