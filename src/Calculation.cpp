@@ -18,6 +18,7 @@
 #include "TBTK/Streams.h"
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
+#include "TBTK/Smooth.h"
 // #include "TBTK/Resource.h"
 // #include "TBTK/FileReader.h"
 // #include "TBTK/FileWriter.h"
@@ -44,6 +45,7 @@ unsigned int Calculation::tip_position;
 complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
+complex<double> Calculation::alpha;
 complex<double> Calculation::delta_start;
 complex<double> Calculation::delta_Delta;
 complex<double> Calculation::coupling_potential;
@@ -56,8 +58,8 @@ complex<double> Calculation::delta_probe;
 complex<double> Calculation::mu_probe;
 
 Calculation::FunctionDelta Calculation::functionDelta;
-Calculation::FunctionDeltaProbe Calculation::functionDeltaProbe;
-Calculation::FunctionDeltaDelta Calculation::functionDeltaDelta;
+// Calculation::FunctionDeltaProbe Calculation::functionDeltaProbe;
+// Calculation::FunctionDeltaDelta Calculation::functionDeltaDelta;
 Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 
 const double Calculation::EPS = 1E-4;
@@ -100,8 +102,8 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 150;
-    delta_simulation_size = 151;
+    system_length = 14;
+    delta_simulation_size = 15;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
@@ -110,6 +112,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
+    alpha = 0.0;
     t_probe = t;
     t_probe_sample = 0.1*t;
     t_sample_imp = 1.0*t;
@@ -301,217 +304,415 @@ Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, 
 
 void Calculation::InitModel()
 {
-    //Create model and set up hopping parameters
     model = Model();
-
-    // Indeces: sample:0, tip: 1, x, y, spin
-    unsigned int system_index_sub = 0; //0 for the substrae, 1 for the tip
-    unsigned int system_index_imp;
-    unsigned int system_index_tip;
-
-    if(model_hubbard_model)
-    {
-        system_index_imp = system_index_sub + 1;
-        system_index_tip = system_index_sub + 2;
-    }
-    else
-    {       
-        system_index_imp = system_index_sub;
-        system_index_tip = system_index_sub + 1;
+    for(int x = 0; x < system_size; x++){
+        for(int y = 0; y < system_size; y++){
+            for(unsigned int spin = 0; spin < 2; spin++){
+                for(unsigned int ph = 0; ph < 2; ph++){
+                    model << HoppingAmplitude(
+                        -mu*(1. - 2*ph),
+                        {x, y, spin, ph},
+                        {x, y, spin, ph}
+                    );
+                    if(x+1 < system_size){
+                        model << HoppingAmplitude(
+                            -t*(1. - 2*ph),
+                            {x+1, y, spin, ph},
+                            {x, y, spin, ph}
+                        ) + HC;
+                    }
+                    else
+                    {
+                        model << HoppingAmplitude(
+                            -t*(1. - 2*ph),
+                            {0, y, spin, ph},
+                            {x, y, spin, ph}
+                        ) + HC;
+                    }
+                    if(y+1 < system_size){
+                        model << HoppingAmplitude(
+                            -t*(1. - 2*ph),
+                            {x, y+1, spin, ph},
+                            {x, y, spin, ph}
+                        ) + HC;
+                    }
+                    else
+                    {
+                        model << HoppingAmplitude(
+                            -t*(1. - 2*ph),
+                            {x, 0, spin, ph},
+                            {x, y, spin, ph}
+                        ) + HC; 
+                    }
+                }
+                model << HoppingAmplitude(
+                    // delta[{x,y}]*(1. - 2*spin),
+                    functionDelta,
+                    {x, y, spin, 0},
+                    {x, y, (spin+1)%2, 1}
+                ) + HC;
+            }
+            
+        }
     }
     unsigned int position = system_size/2;
-    for(unsigned int x = 0; x < system_size; x++){
-        for(unsigned int y = 0; y < system_size; y++){
-            for(unsigned int s = 0; s < 2; s++){
-
-//------------------------chemical Potential-----------------------------------
-                //Add hopping amplitudes corresponding to chemical potential
-                model << HoppingAmplitude(-mu,	{system_index_sub,x, y, s},	{system_index_sub,x, y, s});
-                model << HoppingAmplitude(mu,	{system_index_sub,x, y, s+2},	{system_index_sub,x, y, s+2});
-
-//-------------------BCS interaction term------------------------------------------
-
-//                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
-                model << HoppingAmplitude(Calculation::functionDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
-
-//-------------------BCS interaction term impurity------------------------------------------
-
-//                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
-                if(x == system_size/2 and  y == system_size/2 and model_hubbard_model)
-                {
-                    model << HoppingAmplitude(Calculation::functionDeltaDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
-                }
-//------------------------Nearest neighbour hopping term--------------------------------------
-                //Add hopping parameters corresponding to t
-                if(x == system_size - 1){
-                    model << HoppingAmplitude(-t,	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,	{system_index_sub,x, y, s+2},{system_index_sub,(x+1)%system_size, y, s+2}) + HC;
-                }
-                else
-                {
-                    model << HoppingAmplitude(-t,	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,	{system_index_sub,(x+1)%system_size, y, s+2},{system_index_sub,x, y, s+2}) + HC;
-                }
-                
-                if(y == system_size - 1){
-                    model << HoppingAmplitude(-t,	{system_index_sub, x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
-                }
-                else
-                {
-                    model << HoppingAmplitude(-t,	{system_index_sub,x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
-                    model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
-                }
-                
-
-//---------------------------Zeeman term------------------------------------------
-                if(x == position and  y == position)
-                {
-                    model << HoppingAmplitude(Vz*2.0*(0.5-s), {system_index_imp,x, y, s}, {system_index_imp, x, y, s});
-                    model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_imp,x, y, s+2}, {system_index_imp,x, y, s+2});
-                    if(model_hubbard_model)
-                    {
-                        model << HoppingAmplitude(-mu,	{system_index_imp,x, y, s},	{system_index_imp,x, y, s});
-                        model << HoppingAmplitude(mu,	{system_index_imp,x, y, s+2},	{system_index_imp,x, y, s+2});
-                        model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, x, y, s},	{system_index_imp, x, y, s}) + HC;
-                        model << HoppingAmplitude(t_sample_imp,  {system_index_sub, x, y, s+2}, {system_index_imp, x, y, s+2}) + HC;
-                    }
-                }
-            }
+    addSOC({position,position});
+    for(unsigned int spin = 0; spin < 2; spin++){
+        for(unsigned int ph = 0; ph < 2; ph++){
+            model << HoppingAmplitude(
+                Vz*(1. - 2*spin)*(1. - 2*ph),
+                {position, position, spin, ph},
+                {position, position, spin, ph}
+            );
         }
     }
-    if(model_tip)
-    {
-        unsigned int position = tip_position;
-        if(!flat_tip)
-        {
-            for(unsigned int s = 0; s < 2; s++){
-                model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
-                model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+//     //Create model and set up hopping parameters
+//     model = Model();
+
+//     // Indeces: sample:0, tip: 1, x, y, spin
+//     unsigned int system_index_sub = 0; //0 for the substrae, 1 for the tip
+//     unsigned int system_index_imp;
+//     unsigned int system_index_tip;
+
+//     if(model_hubbard_model)
+//     {
+//         system_index_imp = system_index_sub + 1;
+//         system_index_tip = system_index_sub + 2;
+//     }
+//     else
+//     {       
+//         system_index_imp = system_index_sub;
+//         system_index_tip = system_index_sub + 1;
+//     }
+//     unsigned int position = system_size/2;
+//     for(unsigned int x = 0; x < system_size; x++){
+//         for(unsigned int y = 0; y < system_size; y++){
+//             for(unsigned int s = 0; s < 2; s++){ // s... spin 0: up 1: down
+// //-------------------BCS interaction term------------------------------------------
+
+//                 model << HoppingAmplitude(Calculation::functionDelta, {system_index_sub, x, y, s, 0}, {system_index_sub, x, y, (s+1)%2, 1}) + HC;
+
+//                 for(unsigned ph = 0; ph < 2; ph++){ // ph - particle hole, 0: particle, 1: hole
+// // //------------------------chemical Potential-----------------------------------
+//                     model << HoppingAmplitude(
+//                         -mu*(1. - 2*ph),
+//                         {system_index_sub, x, y, s, ph},
+//                         {system_index_sub, x, y, s, ph}
+//                     );
+// //------------------------Nearest neighbour hopping term--------------------------------------
+//                 //Add hopping parameters corresponding to t
+//                     model << HoppingAmplitude(-t*(1. - 2*ph),	{system_index_sub,(x+1)%system_size, y, s, ph},	{system_index_sub,x, y, s, ph}) + HC;                
+//                     model << HoppingAmplitude(-t*(1. - 2*ph),	{system_index_sub, x, (y+1)%system_size, s, ph},	{system_index_sub,x, y, s, ph}) + HC;
+
+// //---------------------------Zeeman term------------------------------------------
+//                 if(x == position and  y == position)
+//                 {
+//                     cout << Vz*(1. - 2*s)*(1. - 2*ph) << " @ " << system_index_imp << endl;
+//                     model << HoppingAmplitude(Vz*(1. - 2*s)*(1. - 2*ph), {system_index_imp,x, y, s, ph}, {system_index_imp, x, y, s, ph});
+//                 }
+// //------------------------Rashba hopping term--------------------------------------
+//                     model << HoppingAmplitude(-alpha*(1. - 2*ph)/2.,	{system_index_sub,x, y, 1, ph},	{system_index_sub,(x+1)%system_size, y, 0, ph}) + HC;
+//                     model << HoppingAmplitude(alpha *(1. - 2*ph)/2.0,	{system_index_sub,(x+1)%system_size, y, 1, ph},	{system_index_sub,x, y, 0, ph}) + HC;
+                
+                
+//                     model << HoppingAmplitude(-I*alpha*(1. - 2*ph)/2.,	{system_index_sub, x,y, 1, ph},	{system_index_sub,x,  (y+1)%system_size, 0, ph}) + HC;
+//                     model << HoppingAmplitude(I*alpha*(1. - 2*ph)/2.,	{system_index_sub,x, (y+1)%system_size, 1, ph},	{system_index_sub,x, y, 0, ph}) + HC;
+                  
+//                 }
+//             }
+//         }
+//     }
+
+
+
+
+
+// //------------------------chemical Potential-----------------------------------
+//                 //Add hopping amplitudes corresponding to chemical potential
+//                 model << HoppingAmplitude(-mu,	{system_index_sub,x, y, s},	{system_index_sub,x, y, s});
+//                 model << HoppingAmplitude(mu,	{system_index_sub,x, y, s+2},	{system_index_sub,x, y, s+2});
+
+// //-------------------BCS interaction term------------------------------------------
+
+// //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+//                 model << HoppingAmplitude(Calculation::functionDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
+
+// //-------------------BCS interaction term impurity------------------------------------------
+
+// //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+//                 if(x == system_size/2 and  y == system_size/2 and model_hubbard_model)
+//                 {
+//                     model << HoppingAmplitude(Calculation::functionDeltaDelta, {system_index_sub,x,y,s}, {system_index_sub,x,y,(3-s)}) + HC;
+//                 }
+// //------------------------Nearest neighbour hopping term--------------------------------------
+//                 //Add hopping parameters corresponding to t
+//                 if(x == system_size - 1){
+//                     model << HoppingAmplitude(-t,	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(t,	{system_index_sub,x, y, s+2},{system_index_sub,(x+1)%system_size, y, s+2}) + HC;
+//                 }
+//                 else
+//                 {
+//                     model << HoppingAmplitude(-t,	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(t,	{system_index_sub,(x+1)%system_size, y, s+2},{system_index_sub,x, y, s+2}) + HC;
+//                 }
+                
+//                 if(y == system_size - 1){
+//                     model << HoppingAmplitude(-t,	{system_index_sub, x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
+//                 }
+//                 else
+//                 {
+//                     model << HoppingAmplitude(-t,	{system_index_sub,x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
+//                 }
+// //------------------------Rashba hopping term--------------------------------------
+//                 if(x == system_size - 1){
+//                     model << HoppingAmplitude(alpha *2.0*(0.5-s),	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(-alpha *2.0*(0.5-s),	{system_index_sub,x, y, s+2},{system_index_sub,(x+1)%system_size, y, s+2}) + HC;
+//                 }
+//                 else
+//                 {
+//                     model << HoppingAmplitude(alpha *2.0*(0.5-s),	{system_index_sub,(x+1)%system_size, y, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(-alpha *2.0*(0.5-s),	{system_index_sub,(x+1)%system_size, y, s+2},{system_index_sub,x, y, s+2}) + HC;
+//                 }
+                
+//                 if(y == system_size - 1){
+//                     model << HoppingAmplitude(i*alpha,	{system_index_sub, x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
+//                 }
+//                 else
+//                 {
+//                     model << HoppingAmplitude(-t,	{system_index_sub,x, (y+1)%system_size, s},	{system_index_sub,x, y, s}) + HC;
+//                     model << HoppingAmplitude(t,  {system_index_sub,x, y, s+2}, {system_index_sub,x, (y+1)%system_size, s+2}) + HC;
+//                 }  
+//                 if(x == system_size - 1){
+//                     model << HoppingAmplitude(alpha *2.0*(0.5-s), {system_index_sub, (x+1)%SIZE_X,y,(s+1)%2}, {system_index_sub, x,y,s}) + HC;
+//                     model << HoppingAmplitude(-alpha *2.0*(0.5-s), {system_index_sub, x,y,s+2}, {system_index_sub, (x+1)%SIZE_X,y,(s+1)%2+2}) + HC;
+//                 }
+
+//                 if(periodicBoundCond || y+1 < SIZE_Y){
+//     //                    model.addHAAndHC(HoppingAmplitude(i*alpha*2.0*(0.5-s),	{x, (y+1)%SIZE_Y, s*2},	{x, y, s*2+1}));
+//     //                    model.addHAAndHC(HoppingAmplitude(-i*alpha*2.0*(0.5-s),  {x, y, s*2}, {x, (y+1)%SIZE_Y, s*2+1}));
+//                     model.addHAAndHC(HoppingAmplitude(i*alpha, {x,(y+1)%SIZE_Y,(s+1)%2}, {x,y,s}));
+//                     model.addHAAndHC(HoppingAmplitude(-i*alpha, {x,y,s+2}, {x,(y+1)%SIZE_Y,(s+1)%2+2}));
+
+//                 }
+                
+
+// //---------------------------Zeeman term------------------------------------------
+//                 if(x == position and  y == position)
+//                 {
+//                     model << HoppingAmplitude(Vz*2.0*(0.5-s), {system_index_imp,x, y, s}, {system_index_imp, x, y, s});
+//                     model << HoppingAmplitude(-Vz*2.0*(0.5-s), {system_index_imp,x, y, s+2}, {system_index_imp,x, y, s+2});
+//                     if(model_hubbard_model)
+//                     {
+//                         model << HoppingAmplitude(-mu,	{system_index_imp,x, y, s},	{system_index_imp,x, y, s});
+//                         model << HoppingAmplitude(mu,	{system_index_imp,x, y, s+2},	{system_index_imp,x, y, s+2});
+//                         model << HoppingAmplitude(-t_sample_imp,	{system_index_sub, x, y, s},	{system_index_imp, x, y, s}) + HC;
+//                         model << HoppingAmplitude(t_sample_imp,  {system_index_sub, x, y, s+2}, {system_index_imp, x, y, s+2}) + HC;
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//     if(model_hubbard_model)
+//     {
+//         //TODO Hubbard potential and hopping to impurity is still missing here
+//     }
+//     if(model_tip)
+//     {
+//         unsigned int position = tip_position;
+//         if(!flat_tip)
+//         {
+//             for(unsigned int s = 0; s < 2; s++){
+//                 model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+//                 model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
             
-                for(unsigned pos = 1; pos < probe_length; pos++){
-                    if(pos+1 < probe_length){
-                        model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
-                        model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
-                    }
-                    model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
-                    model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
+//                 for(unsigned pos = 1; pos < probe_length; pos++){
+//                     if(pos+1 < probe_length){
+//                         model << HoppingAmplitude(-t_probe,	{pos, position, position, s},	{pos+1, position, position, s}) + HC;
+//                         model << HoppingAmplitude(t_probe,  {pos, position, position, s+2}, {pos+1, position, position, s+2}) + HC;
+//                     }
+//                     model << HoppingAmplitude(-mu,	{pos, position, position, s},	{pos, position, position, s});
+//                     model << HoppingAmplitude(mu,	{pos, position, position, s+2},	{pos, position, position, s+2});
 
-                    // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
-                    model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
-                }
-            }
-        }
-        else
-        {    
-            for(unsigned int s = 0; s < 2; s++){
-                model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
-                model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
-            }
-            for(unsigned int x = 0; x < system_size; x++){
-                for(unsigned int y = 0; y < system_size; y++){
-                    for(unsigned int s = 0; s < 2; s++){
+//                     // model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip, pos,s}, {system_index_tip, pos,(3-s)}) + HC;
+//                     model << HoppingAmplitude(Calculation::functionDeltaProbe, {pos, position, position,s}, {pos, position, position,(3-s)}) + HC;
+//                 }
+//             }
+//         }
+//         else
+//         {    
+//             for(unsigned int s = 0; s < 2; s++){
+//                 model << HoppingAmplitude(-t_probe_sample,	{system_index_sub, position, position, s},	{system_index_tip, position, position, s}) + HC;
+//                 model << HoppingAmplitude(t_probe_sample,  {system_index_sub, position, position, s+2}, {system_index_tip, position, position, s+2}) + HC;
+//             }
+//             for(unsigned int x = 0; x < system_size; x++){
+//                 for(unsigned int y = 0; y < system_size; y++){
+//                     for(unsigned int s = 0; s < 2; s++){
 
-        //------------------------chemical Potential-----------------------------------
-                        //Add hopping amplitudes corresponding to chemical potential
-                        model << HoppingAmplitude(-mu,	{system_index_tip,x, y, s},	{system_index_tip,x, y, s});
-                        model << HoppingAmplitude(mu,	{system_index_tip,x, y, s+2},	{system_index_tip,x, y, s+2});
+//         //------------------------chemical Potential-----------------------------------
+//                         //Add hopping amplitudes corresponding to chemical potential
+//                         model << HoppingAmplitude(-mu,	{system_index_tip,x, y, s},	{system_index_tip,x, y, s});
+//                         model << HoppingAmplitude(mu,	{system_index_tip,x, y, s+2},	{system_index_tip,x, y, s+2});
 
-        //-------------------BCS interaction term------------------------------------------
+//         //-------------------BCS interaction term------------------------------------------
 
-        //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
-                        model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip,x,y,s}, {system_index_tip,x,y,(3-s)}) + HC;
+//         //                model.addHAAndHC(HoppingAmplitude(delta[x][y]*2.0*(0.5-s), {x,y,s}, {x,y,(3-s)}));
+//                         model << HoppingAmplitude(Calculation::functionDeltaProbe, {system_index_tip,x,y,s}, {system_index_tip,x,y,(3-s)}) + HC;
 
 
-        //------------------------Nearest neighbour hopping term--------------------------------------
-                        //Add hopping parameters corresponding to t
-                        if(x == system_size - 1){
-                            model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
-                            model << HoppingAmplitude(t_probe,	{system_index_tip,x, y, s+2},{system_index_tip,(x+1)%system_size, y, s+2}) + HC;
-                        }
-                        else
-                        {
-                            model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
-                            model << HoppingAmplitude(t_probe,	{system_index_tip,(x+1)%system_size, y, s+2},{system_index_tip,x, y, s+2}) + HC;
-                        }
+//         //------------------------Nearest neighbour hopping term--------------------------------------
+//                         //Add hopping parameters corresponding to t
+//                         if(x == system_size - 1){
+//                             model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
+//                             model << HoppingAmplitude(t_probe,	{system_index_tip,x, y, s+2},{system_index_tip,(x+1)%system_size, y, s+2}) + HC;
+//                         }
+//                         else
+//                         {
+//                             model << HoppingAmplitude(-t_probe,	{system_index_tip,(x+1)%system_size, y, s},	{system_index_tip,x, y, s}) + HC;
+//                             model << HoppingAmplitude(t_probe,	{system_index_tip,(x+1)%system_size, y, s+2},{system_index_tip,x, y, s+2}) + HC;
+//                         }
                         
-                        if(y == system_size - 1){
-                            model << HoppingAmplitude(-t_probe,	{system_index_tip, x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
-                            model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
-                        }
-                        else
-                        {
-                            model << HoppingAmplitude(-t_probe,	{system_index_tip,x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
-                            model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
-                        }
+//                         if(y == system_size - 1){
+//                             model << HoppingAmplitude(-t_probe,	{system_index_tip, x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
+//                             model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
+//                         }
+//                         else
+//                         {
+//                             model << HoppingAmplitude(-t_probe,	{system_index_tip,x, (y+1)%system_size, s},	{system_index_tip,x, y, s}) + HC;
+//                             model << HoppingAmplitude(t_probe,  {system_index_tip,x, y, s+2}, {system_index_tip,x, (y+1)%system_size, s+2}) + HC;
+//                         }
 
-                    }
-                }
-            }
-        }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+}
+
+void Calculation::addSOC(const Index& pos){
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    //Particle part x
+    model << HoppingAmplitude(-alpha/2.,	{(x+1)%system_size, y, 1, 0},	{x, y, 0, 0});
+    if(x-1 >= 0){
+        model << HoppingAmplitude(alpha/2.,	{x-1, y, 1, 0},	{x, y, 0, 0});
+        model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0},	{x-1, y, 1, 0});
     }
+    else{
+        model << HoppingAmplitude(alpha/2.,	{system_size-1, y, 1, 0},	{0, y, 0, 0});
+        model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0},	{system_size-1, y, 1, 0});
+    }
+    model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 0},	{(x+1)%system_size, y, 1, 0});
+
+    //Particle part y
+    model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 0},	{x, y, 0, 0});
+    if(y-1 >= 0){
+        model << HoppingAmplitude(I*alpha/2.,	{x, y-1, 1, 0},	{x, y, 0, 0});
+        model << HoppingAmplitude(-I*alpha/2.,	{x, y, 0, 0},	{x, y-1, 1, 0});
+    }
+    else{
+        model << HoppingAmplitude(I*alpha/2.,	{x, system_size-1, 1, 0},	{x, 0, 0, 0});
+        model << HoppingAmplitude(-I*alpha/2.,	{x, 0, 0, 0},	{x, system_size-1, 1, 0});
+    }
+    model << HoppingAmplitude(+I*alpha/2.,	{x, y, 0, 0},	{x, (y+1)%system_size, 1, 0});
+
+    //Hole part x
+    model << HoppingAmplitude(alpha/2.,	{x, y, 0, 1},	{(x+1)%system_size, y, 1, 1});
+    if(x-1 >= 0){
+        model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 1},	{(x-1), y, 1, 1});
+        model << HoppingAmplitude(-alpha/2.,	{x-1, y, 1, 1},	{x, y, 0, 1});
+    }
+    else{
+        model << HoppingAmplitude(-alpha/2.,	{0, y, 0, 1},	{system_size-1, y, 1, 1});
+        model << HoppingAmplitude(-alpha/2.,	{system_size-1, y, 1, 1},	{0, y, 0, 1});
+    }
+    model << HoppingAmplitude(alpha/2.,	{(x+1)%system_size, y, 1, 1},	{x, y, 0, 1});
+
+    //Hole part y
+    model << HoppingAmplitude(I*alpha/2.,	{x, y, 0, 1},	{x, (y+1)%system_size, 1, 1});
+    if(y-1 >= 0){
+        model << HoppingAmplitude(-I*alpha/2.,	{x, y, 0, 1},	{x, y-1, 1, 1});
+        model << HoppingAmplitude(+I*alpha/2.,	{x, y-1, 1, 1},	{x, y, 0, 1});
+    }
+    else{
+        model << HoppingAmplitude(-I*alpha/2.,	{x, 0, 0, 1},	{x, system_size-1, 1, 1});
+        model << HoppingAmplitude(+I*alpha/2.,	{x, system_size-1, 1, 1},	{x, 0, 0, 1});
+    }
+    model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 1},	{x, y, 0, 1});
 }
 
 
 complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& from, const Index& to) const
 {
-    unsigned int from_x = from.at(1);
-    unsigned int from_y = from.at(2);
-    unsigned int from_s = from.at(3);
-
-    switch(from_s)
-    {
-    case 0:
-        return conj(delta[{from_x, from_y}]);
-    case 1:
-        return -conj(delta[{from_x, from_y}]);
-    case 2:
-        return -delta[{from_x, from_y}];
-    case 3:
-        return delta[{from_x, from_y}];
-    default:
-        Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
-        return 0;
+    unsigned int from_x = from.at(0);
+    unsigned int from_y = from.at(1);
+    unsigned int from_s = from.at(2);
+    unsigned int from_ph = from.at(3);
+    // unsigned int from_ph = from.at(4);
+    if(from_ph){
+        return conj(delta[{from_x, from_y}])*(1. - 2*from_s)*(1. - 2*from_ph);
+    } 
+    else{
+        return delta[{from_x, from_y}]*(1. - 2*from_s)*(1. - 2*from_ph);
     }
+
+    // switch(from_s)
+    // {
+    // case 0:
+    //     return conj(delta[{from_x, from_y}]);
+    // case 1:
+    //     return -conj(delta[{from_x, from_y}]);
+    // case 2:
+    //     return -delta[{from_x, from_y}];
+    // case 3:
+    //     return delta[{from_x, from_y}];
+    // default:
+    //     Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
+    //     return 0;
+    // }
 }
 
-complex<double> Calculation::FunctionDeltaDelta::getHoppingAmplitude(const Index& from, const Index& to) const
-{
-    unsigned int from_s = from.at(3);
-    switch(from_s)
-    {
-    case 0:
-        return -conj(delta_probe);
-    case 1:
-        return conj(delta_probe);
-    case 2:
-        return delta_probe;
-    case 3:
-        return -delta_probe;
-    default:
-        Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
-        return 0;
-    }
-}
+// complex<double> Calculation::FunctionDeltaDelta::getHoppingAmplitude(const Index& from, const Index& to) const
+// {
+//     unsigned int from_s = from.at(3);
+//     return delta_probe*(1. - 2*from_s);
+//     // switch(from_s)
+//     // {
+//     // case 0:
+//     //     return -conj(delta_probe);
+//     // case 1:
+//     //     return conj(delta_probe);
+//     // case 2:
+//     //     return delta_probe;
+//     // case 3:
+//     //     return -delta_probe;
+//     // default:
+//     //     Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
+//     //     return 0;
+//     // }
+// }
 
-complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index& from, const Index& to) const
-{
-    unsigned int from_s = from.at(3);
-    switch(from_s)
-    {
-    case 0:
-        return conj(delta_probe);
-    case 1:
-        return -conj(delta_probe);
-    case 2:
-        return -delta_probe;
-    case 3:
-        return delta_probe;
-    default:
-        Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
-        return 0;
-    }
-}
+// complex<double> Calculation::FunctionDeltaProbe::getHoppingAmplitude(const Index& from, const Index& to) const
+// {
+//     unsigned int from_s = from.at(3);
+//     switch(from_s)
+//     {
+//     case 0:
+//         return conj(delta_probe);
+//     case 1:
+//         return -conj(delta_probe);
+//     case 2:
+//         return -delta_probe;
+//     case 3:
+//         return delta_probe;
+//     default:
+//         Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
+//         return 0;
+//     }
+// }
 
 #ifdef GPU_CALCULATION
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
@@ -621,64 +822,239 @@ void Calculation::DoCalc()
 	Streams::out << "finished calc" << endl;
 }
 
+void Calculation::DoTestCalc()
+{
+    model.construct();
+    solver.setModel(model);
+    solver.run();
+	Streams::out << "finished calc" << endl;
+      //Extract DOS and write to file
+    PropertyExtractor::Diagonalizer pe(solver);
+	Property::DOS dos = pe.calculateDOS();
+    Property::EigenValues ev = pe.getEigenValues();
+    Exporter exporter;
+    exporter.save(dos, outputFileName + "_dos.csv" );
+    exporter.save(ev, outputFileName + "_Eigenvalues.csv");
+
+
+    // int nr_excited_states = 20;
+    // int middle = system_size*system_size*2;
+    // vector<string> spin = {"e_up", "e_down", "h_up", "h_down"};
+
+
+    
+    // for(int j = middle - nr_excited_states/2; j < middle + nr_excited_states/2; j++){
+    //   for(unsigned s = 0; s < 2; s++)
+    //   {
+    //     for(unsigned ph = 0; ph<2; ph++){
+    //         Property::WaveFunctions wf = pe.calculateWaveFunctions(
+    //         //   {{0, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+    //         {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+    //         //   {system_size*4+i-nr_excited_states/2}
+    //         {j}
+    //          );
+
+        
+    //         ofstream output_real;
+    //         output_real.open(outputFileName + "WaveFunction_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+    //         ofstream output_imag;
+    //         output_imag.open(outputFileName + "WaveFunction_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+    //         for(unsigned y = 0; y < system_size; y++)
+    //         {
+    //             for(unsigned x = 0; x < system_size; x++)
+    //             {
+    //                 output_real << real(wf({x,y,s,ph}, j));
+    //                 output_imag << imag(wf({x,y,s,ph}, j));
+    //                 if(x < system_size - 1)
+    //                 {
+    //                     output_real << ",";
+    //                     output_imag << ",";
+    //                 }   
+    //             }
+    //             output_real << endl;
+    //             output_imag << endl;
+    //         }
+    //         output_real.close();
+    //         output_imag.close();
+    //     }
+    //   }
+	// }
+    const double LOWER_BOUND = -5;
+    const double UPPER_BOUND = 5;
+    const unsigned int RESOLUTION = 500;
+    pe.setEnergyWindow(
+        LOWER_BOUND,
+        UPPER_BOUND,
+        RESOLUTION
+    );
+    Property::LDOS ldos = pe.calculateLDOS({
+        {_a_, _a_, IDX_SUM_ALL, IDX_SUM_ALL}
+    });
+
+    const double SMOOTHING_SIGMA = 0.025;
+    const unsigned int SMOOTHING_WINDOW = 51;
+    ldos = Smooth::gaussian(ldos, SMOOTHING_SIGMA, SMOOTHING_WINDOW);
+
+
+
+
+
+    ofstream ldos_file;
+    ldos_file.open(outputFileName + "ldos_axisX.csv", ios::trunc);
+    for(unsigned x = 0; x < system_size; x++){
+        for(unsigned n = 0; n < ldos.getResolution(); n++){
+            ldos_file << ldos({x,system_size/2,IDX_SUM_ALL,IDX_SUM_ALL}, n);
+            if(n != ldos.getResolution() - 1){
+                ldos_file << ",";
+            }
+        }
+            if(x != system_size - 1){
+                ldos_file << endl;
+            }
+    }
+    ldos_file.close();
+    ldos_file.open(outputFileName + "ldos_axisY.csv", ios::trunc);
+    for(unsigned x = 0; x < system_size; x++){
+        for(unsigned n = 0; n < ldos.getResolution(); n++){
+            ldos_file << ldos({system_size/2,x,IDX_SUM_ALL,IDX_SUM_ALL}, n);
+            if(n != ldos.getResolution() - 1){
+                ldos_file << ",";
+            }
+        }
+            if(x != system_size - 1){
+                ldos_file << endl;
+            }
+    }
+    ldos_file.close();
+    ldos_file.open(outputFileName + "ldos_axisDiag.csv", ios::trunc);
+    for(unsigned x = 0; x < system_size; x++){
+        for(unsigned n = 0; n < ldos.getResolution(); n++){
+            ldos_file << ldos({x,x,IDX_SUM_ALL,IDX_SUM_ALL}, n);
+            if(n != ldos.getResolution() - 1){
+                ldos_file << ",";
+            }
+        }
+            if(x != system_size - 1){
+                ldos_file << endl;
+            }
+    }
+    ldos_file.close();
+    // Extract LDOS and write to file
+}
+
 void Calculation::CalcEigenstates()
 {
-    int nr_excited_states = 10;
+    int nr_excited_states = 5;
+    double central_value = 0.01;
 
     model.construct();
     Asolver.setModel(model);
-    Asolver.setNumLanczosVectors(10*nr_excited_states);
-    Asolver.setMaxIterations(max_arnoldi_iterations);
+    Asolver.setNumLanczosVectors(30*nr_excited_states);
+    Asolver.setMaxIterations(max_arnoldi_iterations*10);
     Asolver.setNumEigenValues(nr_excited_states);
     Asolver.setCalculateEigenVectors(true);
-    Asolver.setCentralValue(-0.001);
+    Asolver.setCentralValue(-central_value);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
-	Streams::out << "finished calc" << endl;
+	
 
     PropertyExtractor::ArnoldiIterator pe(Asolver);
 
 	// Extract eigen values and write these to file
 	Property::EigenValues ev = pe.getEigenValues();
     Exporter exporter;
-    exporter.save(ev, outputFileName + "Eigenvalues.csv" );
+    exporter.save(ev, outputFileName + "Eigenvalues_minus.csv" );
 
 
     vector<string> spin = {"e_up", "e_down", "h_up", "h_down"};
 
 
     Property::WaveFunctions wf = pe.calculateWaveFunctions(
-          {{0, IDX_ALL, IDX_ALL, IDX_ALL}},
+        //   {{0, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+        {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
         //   {system_size*4+i-nr_excited_states/2}
          {IDX_ALL}
       );
 
   for(int j = 0; j < nr_excited_states; j++){
-      for(unsigned i = 0; i < spin.size(); i++)
+      for(unsigned s = 0; s < 2; s++)
       {
-        ofstream output_real;
-        output_real.open(outputFileName + "WaveFunction_" + spin[i] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
-        ofstream output_imag;
-        output_imag.open(outputFileName + "WaveFunction_" + spin[i] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
-        for(int y = 0; y < system_size; y++)
-        {
-            for(int x = 0; x < system_size; x++)
+        for(unsigned ph = 0; ph<2; ph++){
+
+        
+            ofstream output_real;
+            output_real.open(outputFileName + "WaveFunction_minus_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+            ofstream output_imag;
+            output_imag.open(outputFileName + "WaveFunction_minus_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+            for(unsigned y = 0; y < system_size; y++)
             {
-                output_real << real(wf({0,x,y,i}, j));
-                output_imag << real(wf({0,x,y,i}, j));
-                if(x < system_size - 1)
+                for(unsigned x = 0; x < system_size; x++)
                 {
-                    output_real << ",";
-                    output_imag << ",";
-                }   
+                    // output_real << real(wf({0,x,y,s,ph}, j));
+                    // output_imag << imag(wf({0,x,y,s,ph}, j));
+                    output_real << real(wf({x,y,s,ph}, j));
+                    output_imag << imag(wf({x,y,s,ph}, j));
+                    if(x < system_size - 1)
+                    {
+                        output_real << ",";
+                        output_imag << ",";
+                    }   
+                }
+                output_real << endl;
+                output_imag << endl;
             }
-            output_real << endl;
-            output_imag << endl;
+            output_real.close();
+            output_imag.close();
         }
-        output_real.close();
-        output_imag.close();
       }
 	}
+    Asolver.setCentralValue(central_value);
+    Asolver.run();
+    ev = pe.getEigenValues();
+    exporter.save(ev, outputFileName + "Eigenvalues_plus.csv" );
+
+
+
+    wf = pe.calculateWaveFunctions(
+        //   {{0, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+        {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+        //   {system_size*4+i-nr_excited_states/2}
+         {IDX_ALL}
+      );
+
+  for(int j = 0; j < nr_excited_states; j++){
+      for(unsigned s = 0; s < 2; s++)
+      {
+        for(unsigned ph = 0; ph<2; ph++){
+
+        
+            ofstream output_real;
+            output_real.open(outputFileName + "WaveFunction_plus_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+            ofstream output_imag;
+            output_imag.open(outputFileName + "WaveFunction_plus_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+            for(unsigned y = 0; y < system_size; y++)
+            {
+                for(unsigned x = 0; x < system_size; x++)
+                {
+                    // output_real << real(wf({0,x,y,s,ph}, j));
+                    // output_imag << imag(wf({0,x,y,s,ph}, j));
+                    output_real << real(wf({x,y,s,ph}, j));
+                    output_imag << imag(wf({x,y,s,ph}, j));
+                    if(x < system_size - 1)
+                    {
+                        output_real << ",";
+                        output_imag << ",";
+                    }   
+                }
+                output_real << endl;
+                output_imag << endl;
+            }
+            output_real.close();
+            output_imag.close();
+        }
+      }
+	}
+    Streams::out << "finished calc" << endl;
 }
 
 void Calculation::WriteOutputSc()
@@ -931,6 +1307,11 @@ void Calculation::setTImpSample(complex<double> input)
 void Calculation::setMu(complex<double> input)
 {
   mu = input;
+}
+
+void Calculation::setAlpha(complex<double> input)
+{
+  alpha = input;
 }
 
 void Calculation::setPhase(double input)

@@ -35,6 +35,7 @@ class Calculation
         void WriteOutput();
         void WriteOutputSc();
         void setVz(complex<double>);
+        void setAlpha(complex<double>);
         void setTImpSample(complex<double>);
         void setMu(complex<double>);
         void setPhase(double);
@@ -53,6 +54,7 @@ class Calculation
         string DeltaOutputFilename(const int& nr_sc_loop, const string& filename);
 	void runArnoldiIterator();
         void CalcEigenstates();
+        void DoTestCalc();
 
 
 
@@ -69,6 +71,7 @@ class Calculation
         Array<double> ConvertVectorToArray(const double *, unsigned int, unsigned int);
         Array<complex<double>> deltaPadding(Array<complex<double>>, unsigned int, unsigned int, unsigned int, unsigned int);
         Array<complex<double>> deltaPadding(const Array<double>&);
+        void addSOC(const Index& pos);
         
 
         class FunctionDelta : 
@@ -79,21 +82,21 @@ class Calculation
         };
         static FunctionDelta functionDelta;
 
-        class FunctionDeltaProbe : 
-        public HoppingAmplitude::AmplitudeCallback
-        {
-                complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
+        // class FunctionDeltaProbe : 
+        // public HoppingAmplitude::AmplitudeCallback
+        // {
+        //         complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
             
-        };
-        static FunctionDeltaProbe functionDeltaProbe;
+        // };
+        // static FunctionDeltaProbe functionDeltaProbe;
 
-        class FunctionDeltaDelta : 
-        public HoppingAmplitude::AmplitudeCallback
-        {
-                complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
+        // class FunctionDeltaDelta : 
+        // public HoppingAmplitude::AmplitudeCallback
+        // {
+        //         complex<double> getHoppingAmplitude(const Index&, const Index&) const;    
             
-        };
-        static FunctionDeltaDelta functionDeltaDelta;
+        // };
+        // static FunctionDeltaDelta functionDeltaDelta;
 
 	#ifdef GPU_CALCULATION
     class SelfConsistencyCallback
@@ -134,6 +137,7 @@ class Calculation
         static complex<double> t_probe;
         static complex<double> t_probe_sample;
         static complex<double> t_sample_imp;
+        static complex<double> alpha;
         static double phase;
         static unsigned int probe_length;
         static complex<double> delta_start;
