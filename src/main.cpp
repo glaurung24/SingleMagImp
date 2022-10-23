@@ -44,7 +44,8 @@ int main(int argc, char **argv){
 		// string old_outFile = "";
 		string outFile;
 		unsigned resolution = 256;
-		unsigned max_val = 2;
+		double max_val = 1.75;
+		double min_val = 1.65;
 		// for(unsigned alpha = 0; alpha < resolution*max_val; alpha++){
 		// 	double a = static_cast<double>(alpha)/resolution*0.1;
 		// 	outFile = "alpha_" + to_string(a) +  "mu_" + "-0.5" + "_alpha_test"; 
@@ -60,7 +61,7 @@ int main(int argc, char **argv){
 		// string delta_input_file;
 		// for(int pos = 0; pos <= 5; pos++)
 		// {
-		for(unsigned vz = 0; vz <= resolution*max_val; vz++)
+		for(unsigned vz = static_cast<unsigned>(min_val*resolution); vz <= static_cast<unsigned>(resolution*max_val); vz++)
 		{
 			// unsigned int nr_phase = 64;
 			//   for(unsigned int phase_calc = 0; phase_calc <= nr_phase; phase_calc++){
@@ -73,10 +74,11 @@ int main(int argc, char **argv){
 					// outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos); 
 					// outFile = "vz_" + to_string(Vz) +  "Eigenstates_calc_single_soc_";
 					
-					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size15_sc";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size15_sc";
+					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size101_p_wave";
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "phase_0.000000" + "_diag_size151_probeNewPos_0_" + "delta_000.csv";
-					string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "_diag_size15_sc_" + "delta_000.csv";
-					if(!file_exists(outFile) & file_exists(delta_input_file))
+					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "_diag_size15_sc_" + "delta_000.csv";
+					if(!file_exists(outFile)) // & file_exists(delta_input_file))
 					{
 						ofstream output(outFile);
 						Calculation calc(outFile, complex<double>(Vz));
@@ -84,7 +86,7 @@ int main(int argc, char **argv){
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
-						calc.readDeltaCsv(0, delta_input_file);
+						// calc.readDeltaCsv(0, delta_input_file);
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
 						// }

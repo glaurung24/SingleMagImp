@@ -72,6 +72,7 @@ class Calculation
         Array<complex<double>> deltaPadding(Array<complex<double>>, unsigned int, unsigned int, unsigned int, unsigned int);
         Array<complex<double>> deltaPadding(const Array<double>&);
         void addSOC(const Index& pos);
+        void addPWave(const Index& pos);
         
 
         class FunctionDelta : 
@@ -138,6 +139,7 @@ class Calculation
         static complex<double> t_probe_sample;
         static complex<double> t_sample_imp;
         static complex<double> alpha;
+        static complex<double> delta_p;
         static double phase;
         static unsigned int probe_length;
         static complex<double> delta_start;

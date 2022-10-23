@@ -46,6 +46,7 @@ complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
 complex<double> Calculation::alpha;
+complex<double> Calculation::delta_p;
 complex<double> Calculation::delta_start;
 complex<double> Calculation::delta_Delta;
 complex<double> Calculation::coupling_potential;
@@ -102,13 +103,14 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 14;
+    system_length = 100;
     delta_simulation_size = 15;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
 
     delta_start = 0.115490; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
+    delta_p = 0.1*delta_start;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -357,6 +359,7 @@ void Calculation::InitModel()
     }
     unsigned int position = system_size/2;
     addSOC({position,position});
+    addPWave({position,position});
     for(unsigned int spin = 0; spin < 2; spin++){
         for(unsigned int ph = 0; ph < 2; ph++){
             model << HoppingAmplitude(
@@ -642,6 +645,35 @@ void Calculation::addSOC(const Index& pos){
         model << HoppingAmplitude(+I*alpha/2.,	{x, system_size-1, 1, 1},	{x, 0, 0, 1});
     }
     model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 1},	{x, y, 0, 1});
+}
+
+void Calculation::addPWave(const Index& pos){
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    for(unsigned spin = 0; spin < 2; spin++){
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0},
+            {x+1, y, spin, 1}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0},
+            {x-1, y, spin, 1}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0},
+            {x, y+1, spin, 1}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0},
+            {x, y-1, spin, 1}
+        ) + HC;
+    }
+
 }
 
 
