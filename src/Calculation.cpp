@@ -1116,6 +1116,7 @@ void Calculation::DoCalc()
 	Streams::out << "finished calc" << endl;
 }
 
+#ifndef GPU_CALCULATION
 void Calculation::DoTestCalc()
 {
     model.construct();
@@ -1235,6 +1236,7 @@ void Calculation::DoTestCalc()
     ldos_file.close();
     // Extract LDOS and write to file
 }
+#endif
 
 void Calculation::CalcEigenstates()
 {
