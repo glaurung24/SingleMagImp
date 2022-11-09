@@ -74,6 +74,7 @@ bool Calculation::symmetry_on;
 bool Calculation::use_gpu;
 bool Calculation::model_tip;
 bool Calculation::flat_tip;
+bool Calculation::p_wave_sc;
 
 Solver::ArnoldiIterator Calculation::Asolver;
 
@@ -127,6 +128,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     flat_tip = false;
     model_hubbard_model = false;
     calculate_waveFcts = true;
+    p_wave_sc = true;
 
     tip_position = system_size/2;
     
@@ -1037,8 +1039,8 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
 
         #pragma omp parallel for
         for(unsigned int y = position; y <= x; y++)
-        {
-            delta_temp[{x , y}] = (-pe.calculateExpectationValue({0,x,y, 3},{0,x, y, 0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+        {                   
+            delta_temp[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{x, y, 1,0,0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
             if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/abs(delta_start) > diff)
             {
                 diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);

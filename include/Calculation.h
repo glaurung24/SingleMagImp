@@ -174,6 +174,7 @@ class Calculation
         static bool use_gpu;
         static bool model_tip;
         static bool flat_tip;
+        static bool p_wave_sc;
         bool model_hubbard_model;
         bool calculate_waveFcts;
         bool impurity_level_present;
