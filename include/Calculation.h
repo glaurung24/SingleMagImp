@@ -1,6 +1,6 @@
 #pragma once
 
-// #define GPU_CALCULATION
+#define GPU_CALCULATION
 
 #include <complex>
 

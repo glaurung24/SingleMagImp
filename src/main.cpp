@@ -43,11 +43,11 @@ int main(int argc, char **argv){
 	// {
 		// string old_outFile = "";
 		string outFile;
-		unsigned resolution = 512;
+		unsigned resolution = 64;
 		double min_val = 1.65;
 		double max_val = 1.85;
 
-		unsigned system_size = 51;
+		unsigned system_size = 101;
 		double mu = -0.5;
 		// for(unsigned alpha = 0; alpha < resolution*max_val; alpha++){
 		// 	double a = static_cast<double>(alpha)/resolution*0.1;
@@ -78,9 +78,9 @@ int main(int argc, char **argv){
 					// outFile = "vz_" + to_string(Vz) +  "Eigenstates_calc_single_soc_";
 					
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size15_sc";
-					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size151_sc";
+					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWave";
-					outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWaveUp";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWaveUp";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta151";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_nosc_delta51";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_ImpurityLevelSOC";
@@ -111,11 +111,11 @@ int main(int argc, char **argv){
 						// calc.setDeltaDelta(dD);
 						//  cout << to_string(real(dD)) << endl;
 						calc.InitModel();
-						// calc.DoScCalc();
-						// calc.WriteOutputSc();
+						calc.DoScCalc();
+						calc.WriteOutputSc();
 						// calc.DoCalc();
 						// calc.WriteOutput();
-						calc.CalcEigenstates();
+						// calc.CalcEigenstates();
 						// calc.WriteDelta(0);
 						
 					}
