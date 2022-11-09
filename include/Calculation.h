@@ -73,6 +73,13 @@ class Calculation
         Array<complex<double>> deltaPadding(const Array<double>&);
         void addSOC(const Index& pos);
         void addPWave(const Index& pos);
+        void addImpurityLevel(const Index& pos);
+        void addPWaveBond(const Index& pos);
+        void addSOCBond(const Index& pos);
+        void addSwaveBond(const Index& pos);
+        void addUpDownPwaveBond(const Index& pos);
+        void addLocalSwaveBonds(const Index& pos);
+        void addPWaveUP(const Index& pos);
         
 
         class FunctionDelta : 
@@ -140,6 +147,7 @@ class Calculation
         static complex<double> t_sample_imp;
         static complex<double> alpha;
         static complex<double> delta_p;
+        static complex<double> delta_s_bond;
         static double phase;
         static unsigned int probe_length;
         static complex<double> delta_start;
@@ -167,6 +175,8 @@ class Calculation
         static bool model_tip;
         static bool flat_tip;
         bool model_hubbard_model;
+        bool calculate_waveFcts;
+        bool impurity_level_present;
 
 
         Model model;

@@ -47,6 +47,7 @@ complex<double> Calculation::Vz;
 complex<double> Calculation::t;
 complex<double> Calculation::alpha;
 complex<double> Calculation::delta_p;
+complex<double> Calculation::delta_s_bond;
 complex<double> Calculation::delta_start;
 complex<double> Calculation::delta_Delta;
 complex<double> Calculation::coupling_potential;
@@ -104,13 +105,14 @@ Calculation::~Calculation()
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
     system_length = 100;
-    delta_simulation_size = 15;
+    delta_simulation_size = 101;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
 
     delta_start = 0.115490; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     delta_p = 0.1*delta_start;
+    delta_s_bond = 0.1*delta_start;
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -124,6 +126,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     model_tip = false;
     flat_tip = false;
     model_hubbard_model = false;
+    calculate_waveFcts = true;
 
     tip_position = system_size/2;
     
@@ -269,16 +272,30 @@ Array<complex<double>> Calculation::deltaPadding(const Array<double>& input)
 {
     unsigned int sizeX_input = input.getRanges()[0];
     unsigned int sizeY_input = input.getRanges()[1];
-    unsigned int marginX = (system_size - sizeX_input)/2;
-    unsigned int marginY = (system_size - sizeY_input)/2;
     Array<complex<double>> out = Array<complex<double>>({system_size, system_size}, delta_start);
-    for(unsigned int i=0; i < sizeX_input; i++)
-    {
-        for(unsigned int j=0; j < sizeY_input; j++)
+    if(system_size >= delta_simulation_size){
+        unsigned int marginX = (system_size - sizeX_input)/2;
+        unsigned int marginY = (system_size - sizeY_input)/2;
+        for(unsigned int i=0; i < sizeX_input; i++)
         {
-            out[{i+marginX,j+marginY}] = input[j+i*sizeY_input];
+            for(unsigned int j=0; j < sizeY_input; j++)
+            {
+                out[{i+marginX,j+marginY}] = input[j+i*sizeY_input];
+            }
         }
     }
+    else{
+        unsigned int marginX = (sizeX_input - system_size)/2;
+        unsigned int marginY = (sizeY_input - system_size)/2;
+        for(unsigned int i=0; i < system_size; i++)
+        {
+            for(unsigned int j=0; j < system_size; j++)
+            {
+                out[{i,j}] = input[(j+marginY)+(i+marginX)*sizeY_input];
+            }
+        }
+    }
+
     return out;
 }
 
@@ -307,65 +324,73 @@ Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, 
 void Calculation::InitModel()
 {
     model = Model();
+    impurity_level_present = false; //Will be set to true in functions that add an extra impurity layer
     for(int x = 0; x < system_size; x++){
         for(int y = 0; y < system_size; y++){
             for(unsigned int spin = 0; spin < 2; spin++){
                 for(unsigned int ph = 0; ph < 2; ph++){
                     model << HoppingAmplitude(
                         -mu*(1. - 2*ph),
-                        {x, y, spin, ph},
-                        {x, y, spin, ph}
+                        {x, y, spin, ph, 0},
+                        {x, y, spin, ph, 0}
                     );
                     if(x+1 < system_size){
                         model << HoppingAmplitude(
                             -t*(1. - 2*ph),
-                            {x+1, y, spin, ph},
-                            {x, y, spin, ph}
+                            {x+1, y, spin, ph, 0},
+                            {x, y, spin, ph, 0}
                         ) + HC;
                     }
                     else
                     {
                         model << HoppingAmplitude(
                             -t*(1. - 2*ph),
-                            {0, y, spin, ph},
-                            {x, y, spin, ph}
+                            {0, y, spin, ph, 0},
+                            {x, y, spin, ph, 0}
                         ) + HC;
                     }
                     if(y+1 < system_size){
                         model << HoppingAmplitude(
                             -t*(1. - 2*ph),
-                            {x, y+1, spin, ph},
-                            {x, y, spin, ph}
+                            {x, y+1, spin, ph, 0},
+                            {x, y, spin, ph, 0}
                         ) + HC;
                     }
                     else
                     {
                         model << HoppingAmplitude(
                             -t*(1. - 2*ph),
-                            {x, 0, spin, ph},
-                            {x, y, spin, ph}
+                            {x, 0, spin, ph, 0},
+                            {x, y, spin, ph, 0}
                         ) + HC; 
                     }
                 }
                 model << HoppingAmplitude(
                     // delta[{x,y}]*(1. - 2*spin),
                     functionDelta,
-                    {x, y, spin, 0},
-                    {x, y, (spin+1)%2, 1}
+                    {x, y, spin, 0, 0},
+                    {x, y, (spin+1)%2, 1, 0}
                 ) + HC;
             }
+            
             
         }
     }
     unsigned int position = system_size/2;
-    addSOC({position,position});
-    addPWave({position,position});
+    // addImpurityLevel({position,position});
+    // addPWaveBond({position,position});
+    // addSOCBond({position,position});
+    // addSwaveBond({position,position});
+    // addSOC({position,position});
+    // addLocalSwaveBonds({position,position});
+    // addPWaveUP({position,position});
+    // addPWave({position,position});
     for(unsigned int spin = 0; spin < 2; spin++){
         for(unsigned int ph = 0; ph < 2; ph++){
             model << HoppingAmplitude(
                 Vz*(1. - 2*spin)*(1. - 2*ph),
-                {position, position, spin, ph},
-                {position, position, spin, ph}
+                {position, position, spin, ph, 0},
+                {position, position, spin, ph, 0}
             );
         }
     }
@@ -594,57 +619,225 @@ void Calculation::InitModel()
 //     }
 }
 
+void Calculation::addImpurityLevel(const Index& pos){ //Impurity index is 1 (last position in Index)
+    impurity_level_present = true;
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+        for(unsigned int spin = 0; spin < 2; spin++){
+        for(unsigned int ph = 0; ph < 2; ph++){
+            model << HoppingAmplitude(
+                -mu*(1. - 2*ph),
+                {x, y, spin, ph, 1},
+                {x, y, spin, ph, 1}
+            );
+            model << HoppingAmplitude(
+                -t_sample_imp*(1. - 2*ph),
+                {x, y, spin, ph, 0},
+                {x, y, spin, ph, 1}
+            ) + HC;
+            model << HoppingAmplitude(
+                Vz*(1. - 2*spin)*(1. - 2*ph),
+                {x, y, spin, ph, 1},
+                {x, y, spin, ph, 1}
+            );
+        }
+    }
+}
+
 void Calculation::addSOC(const Index& pos){
     int x = pos.at(0);
     int y = pos.at(1);
 
     //Particle part x
-    model << HoppingAmplitude(-alpha/2.,	{(x+1)%system_size, y, 1, 0},	{x, y, 0, 0});
+    model << HoppingAmplitude(-alpha/2.,	{(x+1)%system_size, y, 1, 0, 0},	{x, y, 0, 0, 0});
     if(x-1 >= 0){
-        model << HoppingAmplitude(alpha/2.,	{x-1, y, 1, 0},	{x, y, 0, 0});
-        model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0},	{x-1, y, 1, 0});
+        model << HoppingAmplitude(alpha/2.,	{x-1, y, 1, 0, 0},	{x, y, 0, 0, 0});
+        model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0, 0},	{x-1, y, 1, 0, 0});
     }
     else{
-        model << HoppingAmplitude(alpha/2.,	{system_size-1, y, 1, 0},	{0, y, 0, 0});
-        model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0},	{system_size-1, y, 1, 0});
+        model << HoppingAmplitude(alpha/2.,	{system_size-1, y, 1, 0, 0},	{0, y, 0, 0, 0});
+        model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0, 0},	{system_size-1, y, 1, 0, 0});
     }
-    model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 0},	{(x+1)%system_size, y, 1, 0});
+    model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 0, 0},	{(x+1)%system_size, y, 1, 0, 0});
 
     //Particle part y
-    model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 0},	{x, y, 0, 0});
+    model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 0, 0},	{x, y, 0, 0, 0});
     if(y-1 >= 0){
-        model << HoppingAmplitude(I*alpha/2.,	{x, y-1, 1, 0},	{x, y, 0, 0});
-        model << HoppingAmplitude(-I*alpha/2.,	{x, y, 0, 0},	{x, y-1, 1, 0});
+        model << HoppingAmplitude(I*alpha/2.,	{x, y-1, 1, 0, 0},	{x, y, 0, 0, 0});
+        model << HoppingAmplitude(-I*alpha/2.,	{x, y, 0, 0, 0},	{x, y-1, 1, 0, 0});
     }
     else{
-        model << HoppingAmplitude(I*alpha/2.,	{x, system_size-1, 1, 0},	{x, 0, 0, 0});
-        model << HoppingAmplitude(-I*alpha/2.,	{x, 0, 0, 0},	{x, system_size-1, 1, 0});
+        model << HoppingAmplitude(I*alpha/2.,	{x, system_size-1, 1, 0, 0},	{x, 0, 0, 0, 0});
+        model << HoppingAmplitude(-I*alpha/2.,	{x, 0, 0, 0, 0},	{x, system_size-1, 1, 0, 0});
     }
-    model << HoppingAmplitude(+I*alpha/2.,	{x, y, 0, 0},	{x, (y+1)%system_size, 1, 0});
+    model << HoppingAmplitude(+I*alpha/2.,	{x, y, 0, 0, 0},	{x, (y+1)%system_size, 1, 0, 0});
 
     //Hole part x
-    model << HoppingAmplitude(alpha/2.,	{x, y, 0, 1},	{(x+1)%system_size, y, 1, 1});
+    model << HoppingAmplitude(alpha/2.,	{x, y, 0, 1, 0},	{(x+1)%system_size, y, 1, 1, 0});
     if(x-1 >= 0){
-        model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 1},	{(x-1), y, 1, 1});
-        model << HoppingAmplitude(-alpha/2.,	{x-1, y, 1, 1},	{x, y, 0, 1});
+        model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 1, 0},	{(x-1), y, 1, 1, 0});
+        model << HoppingAmplitude(-alpha/2.,	{x-1, y, 1, 1, 0},	{x, y, 0, 1, 0});
     }
     else{
-        model << HoppingAmplitude(-alpha/2.,	{0, y, 0, 1},	{system_size-1, y, 1, 1});
-        model << HoppingAmplitude(-alpha/2.,	{system_size-1, y, 1, 1},	{0, y, 0, 1});
+        model << HoppingAmplitude(-alpha/2.,	{0, y, 0, 1, 0},	{system_size-1, y, 1, 1, 0});
+        model << HoppingAmplitude(-alpha/2.,	{system_size-1, y, 1, 1, 0},	{0, y, 0, 1, 0});
     }
-    model << HoppingAmplitude(alpha/2.,	{(x+1)%system_size, y, 1, 1},	{x, y, 0, 1});
+    model << HoppingAmplitude(alpha/2.,	{(x+1)%system_size, y, 1, 1, 0},	{x, y, 0, 1, 0});
 
     //Hole part y
-    model << HoppingAmplitude(I*alpha/2.,	{x, y, 0, 1},	{x, (y+1)%system_size, 1, 1});
+    model << HoppingAmplitude(I*alpha/2.,	{x, y, 0, 1, 0},	{x, (y+1)%system_size, 1, 1, 0});
     if(y-1 >= 0){
-        model << HoppingAmplitude(-I*alpha/2.,	{x, y, 0, 1},	{x, y-1, 1, 1});
-        model << HoppingAmplitude(+I*alpha/2.,	{x, y-1, 1, 1},	{x, y, 0, 1});
+        model << HoppingAmplitude(-I*alpha/2.,	{x, y, 0, 1, 0},	{x, y-1, 1, 1, 0});
+        model << HoppingAmplitude(+I*alpha/2.,	{x, y-1, 1, 1, 0},	{x, y, 0, 1, 0});
     }
     else{
-        model << HoppingAmplitude(-I*alpha/2.,	{x, 0, 0, 1},	{x, system_size-1, 1, 1});
-        model << HoppingAmplitude(+I*alpha/2.,	{x, system_size-1, 1, 1},	{x, 0, 0, 1});
+        model << HoppingAmplitude(-I*alpha/2.,	{x, 0, 0, 1, 0},	{x, system_size-1, 1, 1, 0});
+        model << HoppingAmplitude(+I*alpha/2.,	{x, system_size-1, 1, 1, 0},	{x, 0, 0, 1, 0});
     }
-    model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 1},	{x, y, 0, 1});
+    model << HoppingAmplitude(-I*alpha/2.,	{x, (y+1)%system_size, 1, 1, 0},	{x, y, 0, 1, 0});
+}
+
+
+void Calculation::addSOCBond(const Index& pos){
+    impurity_level_present = true;
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    //Particle part x
+    model << HoppingAmplitude(-alpha/2.,	{x, y, 1, 0, 1},	{x, y, 0, 0, 0});
+    model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 0, 0},	{x, y, 1, 0, 1});
+    model << HoppingAmplitude(alpha/2.,	{x, y, 1, 0, 0},	{x, y, 0, 0, 1});
+    model << HoppingAmplitude(alpha/2.,	{x, y, 0, 0, 1},	{x, y, 1, 0, 0});
+
+
+    //Hole part x
+    model << HoppingAmplitude(alpha/2.,	{x, y, 0, 1, 0},	{x, y, 1, 1, 1});
+    model << HoppingAmplitude(alpha/2.,	{x, y, 1, 1, 1},	{x, y, 0, 1, 0});
+    model << HoppingAmplitude(-alpha/2.,	{x, y, 0, 1, 1},	{x, y, 1, 1, 0});
+    model << HoppingAmplitude(-alpha/2.,	{x, y, 1, 1, 0},	{x, y, 0, 1, 1});
+}
+
+
+void Calculation::addPWaveBond(const Index& pos){
+    impurity_level_present = true;
+    int x = pos.at(0);
+    int y = pos.at(1);
+    for(unsigned spin = 0; spin < 2; spin++){
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0, 0},
+            {x, y, spin, 1, 1}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 1, 0},
+            {x, y, spin, 0, 1}
+        ) + HC;
+    }
+}
+
+void Calculation::addSwaveBond(const Index& pos){
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    model << HoppingAmplitude(
+        delta_s_bond,
+        {x, y, 0, 0, 0},
+        {x, y, 1, 1, 1}
+    ) + HC;
+    model << HoppingAmplitude(
+        -delta_s_bond,
+        {x, y, 1, 0, 0},
+        {x, y, 0, 1, 1}
+    ) + HC;
+    model << HoppingAmplitude(
+        -delta_s_bond,
+        {x, y, 0, 1, 0},
+        {x, y, 1, 0, 1}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_s_bond,
+        {x, y, 1, 1, 0},
+        {x, y, 0, 0, 1}
+    ) + HC;
+}
+
+void Calculation::addLocalSwaveBonds(const Index& pos){
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    for(int bond = 1; bond <= 1; bond += 2){
+        // x direction
+        model << HoppingAmplitude(
+            delta_s_bond,
+            {x, y, 0, 0, 0},
+            {x + bond, y, 1, 1, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            -delta_s_bond,
+            {x, y, 1, 0, 0},
+            {x + bond, y, 0, 1, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            -delta_s_bond,
+            {x, y, 0, 1, 0},
+            {x+bond, y, 1, 0, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_s_bond,
+            {x, y, 1, 1, 0},
+            {x+bond, y, 0, 0, 0}
+        ) + HC;
+        // y direction
+            model << HoppingAmplitude(
+            delta_s_bond,
+            {x, y, 0, 0, 0},
+            {x, y + bond, 1, 1, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            -delta_s_bond,
+            {x, y, 1, 0, 0},
+            {x, y + bond, 0, 1, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            -delta_s_bond,
+            {x, y, 0, 1, 0},
+            {x, y+ bond, 1, 0, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_s_bond,
+            {x, y, 1, 1, 0},
+            {x, y + bond, 0, 0, 0}
+        ) + HC;
+    }
+
+}
+
+void Calculation::addUpDownPwaveBond(const Index& pos){
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, 0, 0, 0},
+        {x, y, 1, 1, 1}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, 1, 0, 0},
+        {x, y, 0, 1, 1}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, 0, 1, 0},
+        {x, y, 1, 0, 1}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, 1, 1, 0},
+        {x, y, 0, 0, 1}
+    ) + HC;
 }
 
 void Calculation::addPWave(const Index& pos){
@@ -654,25 +847,94 @@ void Calculation::addPWave(const Index& pos){
     for(unsigned spin = 0; spin < 2; spin++){
         model << HoppingAmplitude(
             delta_p,
-            {x, y, spin, 0},
-            {x+1, y, spin, 1}
+            {x, y, spin, 0, 0},
+            {x+1, y, spin, 1, 0}
         ) + HC;
         model << HoppingAmplitude(
             delta_p,
-            {x, y, spin, 0},
-            {x-1, y, spin, 1}
+            {x, y, spin, 1, 0},
+            {x+1, y, spin, 0, 0}
         ) + HC;
         model << HoppingAmplitude(
             delta_p,
-            {x, y, spin, 0},
-            {x, y+1, spin, 1}
+            {x, y, spin, 0, 0},
+            {x-1, y, spin, 1, 0}
         ) + HC;
         model << HoppingAmplitude(
             delta_p,
-            {x, y, spin, 0},
-            {x, y-1, spin, 1}
+            {x, y, spin, 1, 0},
+            {x-1, y, spin, 0, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0, 0},
+            {x, y+1, spin, 1, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 1, 0},
+            {x, y+1, spin, 0, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 0, 0},
+            {x, y-1, spin, 1, 0}
+        ) + HC;
+        model << HoppingAmplitude(
+            delta_p,
+            {x, y, spin, 1, 0},
+            {x, y-1, spin, 0, 0}
         ) + HC;
     }
+
+}
+
+void Calculation::addPWaveUP(const Index& pos){
+    int x = pos.at(0);
+    int y = pos.at(1);
+
+    unsigned spin = 0;
+
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 0, 0},
+        {x+1, y, spin, 1, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 1, 0},
+        {x+1, y, spin, 0, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 0, 0},
+        {x-1, y, spin, 1, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 1, 0},
+        {x-1, y, spin, 0, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 0, 0},
+        {x, y+1, spin, 1, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 1, 0},
+        {x, y+1, spin, 0, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 0, 0},
+        {x, y-1, spin, 1, 0}
+    ) + HC;
+    model << HoppingAmplitude(
+        delta_p,
+        {x, y, spin, 1, 0},
+        {x, y-1, spin, 0, 0}
+    ) + HC;
 
 }
 
@@ -984,7 +1246,7 @@ void Calculation::CalcEigenstates()
     Asolver.setNumLanczosVectors(30*nr_excited_states);
     Asolver.setMaxIterations(max_arnoldi_iterations*10);
     Asolver.setNumEigenValues(nr_excited_states);
-    Asolver.setCalculateEigenVectors(true);
+    Asolver.setCalculateEigenVectors(calculate_waveFcts);
     Asolver.setCentralValue(-central_value);
     Asolver.setMode(Solver::ArnoldiIterator::Mode::ShiftAndInvert);
     Asolver.run();
@@ -1000,92 +1262,120 @@ void Calculation::CalcEigenstates()
 
     vector<string> spin = {"e_up", "e_down", "h_up", "h_down"};
 
-
-    Property::WaveFunctions wf = pe.calculateWaveFunctions(
+    if(calculate_waveFcts){
+        Property::WaveFunctions wf = pe.calculateWaveFunctions(
         //   {{0, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
-        {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+            {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
         //   {system_size*4+i-nr_excited_states/2}
-         {IDX_ALL}
-      );
+            {IDX_ALL}
+        );
 
-  for(int j = 0; j < nr_excited_states; j++){
-      for(unsigned s = 0; s < 2; s++)
-      {
-        for(unsigned ph = 0; ph<2; ph++){
 
-        
-            ofstream output_real;
-            output_real.open(outputFileName + "WaveFunction_minus_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
-            ofstream output_imag;
-            output_imag.open(outputFileName + "WaveFunction_minus_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
-            for(unsigned y = 0; y < system_size; y++)
+
+        for(int j = 0; j < nr_excited_states; j++){
+            for(unsigned s = 0; s < 2; s++)
             {
-                for(unsigned x = 0; x < system_size; x++)
-                {
-                    // output_real << real(wf({0,x,y,s,ph}, j));
-                    // output_imag << imag(wf({0,x,y,s,ph}, j));
-                    output_real << real(wf({x,y,s,ph}, j));
-                    output_imag << imag(wf({x,y,s,ph}, j));
-                    if(x < system_size - 1)
+                for(unsigned ph = 0; ph<2; ph++){
+
+                
+                    ofstream output_real;
+                    output_real.open(outputFileName + "WaveFunction_minus_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+                    ofstream output_imag;
+                    output_imag.open(outputFileName + "WaveFunction_minus_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+                    for(unsigned y = 0; y < system_size; y++)
                     {
-                        output_real << ",";
-                        output_imag << ",";
-                    }   
+                        for(unsigned x = 0; x < system_size; x++)
+                        {
+                            // output_real << real(wf({0,x,y,s,ph}, j));
+                            // output_imag << imag(wf({0,x,y,s,ph}, j));
+                            output_real << real(wf({x,y,s,ph, 0}, j));
+                            output_imag << imag(wf({x,y,s,ph, 0}, j));
+                            if(x < system_size - 1)
+                            {
+                                output_real << ",";
+                                output_imag << ",";
+                            }   
+                        }
+                        output_real << endl;
+                        output_imag << endl;
+                    }
+                    output_real.close();
+                    output_imag.close();
+                    if(impurity_level_present){
+                        unsigned middle = system_size/2;
+                        output_real.open(outputFileName + "WaveFunction_minus_imp_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+                        output_imag.open(outputFileName + "WaveFunction_minus_imp" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+                        output_real << real(wf({middle, middle,s,ph, 1}, j));
+                        output_imag << imag(wf({middle, middle,s,ph, 1}, j));
+                        output_real << endl;
+                        output_imag << endl;
+                        output_real.close();
+                        output_imag.close();
+                    }
                 }
-                output_real << endl;
-                output_imag << endl;
             }
-            output_real.close();
-            output_imag.close();
         }
-      }
-	}
+    }
+    
     Asolver.setCentralValue(central_value);
     Asolver.run();
     ev = pe.getEigenValues();
     exporter.save(ev, outputFileName + "Eigenvalues_plus.csv" );
 
 
+    if(calculate_waveFcts){
+        Property::WaveFunctions wf = pe.calculateWaveFunctions(
+            //   {{0, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+            {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
+            //   {system_size*4+i-nr_excited_states/2}
+            {IDX_ALL}
+        );
 
-    wf = pe.calculateWaveFunctions(
-        //   {{0, IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
-        {{IDX_ALL, IDX_ALL, IDX_ALL, IDX_ALL}},
-        //   {system_size*4+i-nr_excited_states/2}
-         {IDX_ALL}
-      );
-
-  for(int j = 0; j < nr_excited_states; j++){
-      for(unsigned s = 0; s < 2; s++)
-      {
-        for(unsigned ph = 0; ph<2; ph++){
-
-        
-            ofstream output_real;
-            output_real.open(outputFileName + "WaveFunction_plus_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
-            ofstream output_imag;
-            output_imag.open(outputFileName + "WaveFunction_plus_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
-            for(unsigned y = 0; y < system_size; y++)
+        for(int j = 0; j < nr_excited_states; j++){
+            for(unsigned s = 0; s < 2; s++)
             {
-                for(unsigned x = 0; x < system_size; x++)
-                {
-                    // output_real << real(wf({0,x,y,s,ph}, j));
-                    // output_imag << imag(wf({0,x,y,s,ph}, j));
-                    output_real << real(wf({x,y,s,ph}, j));
-                    output_imag << imag(wf({x,y,s,ph}, j));
-                    if(x < system_size - 1)
+                for(unsigned ph = 0; ph<2; ph++){
+
+                
+                    ofstream output_real;
+                    output_real.open(outputFileName + "WaveFunction_plus_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+                    ofstream output_imag;
+                    output_imag.open(outputFileName + "WaveFunction_plus_" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+                    for(unsigned y = 0; y < system_size; y++)
                     {
-                        output_real << ",";
-                        output_imag << ",";
-                    }   
+                        for(unsigned x = 0; x < system_size; x++)
+                        {
+                            // output_real << real(wf({0,x,y,s,ph}, j));
+                            // output_imag << imag(wf({0,x,y,s,ph}, j));
+                            output_real << real(wf({x,y,s,ph, 0}, j));
+                            output_imag << imag(wf({x,y,s,ph, 0}, j));
+                            if(x < system_size - 1)
+                            {
+                                output_real << ",";
+                                output_imag << ",";
+                            }   
+                        }
+                        output_real << endl;
+                        output_imag << endl;
+                    }
+                    output_real.close();
+                    output_imag.close();
+                    if(impurity_level_present){
+                        unsigned middle = system_size/2;
+                        output_real.open(outputFileName + "WaveFunction_plus_imp_" + spin[s + 2*ph] + "_nr_real_" + to_string(j) + ".csv", ios::trunc);
+                        output_imag.open(outputFileName + "WaveFunction_plus_imp" + spin[s + 2*ph] + "_nr_imag_" + to_string(j) + ".csv", ios::trunc);
+                        output_real << real(wf({middle, middle,s,ph, 1}, j));
+                        output_imag << imag(wf({middle, middle,s,ph, 1}, j));
+                        output_real << endl;
+                        output_imag << endl;
+                        output_real.close();
+                        output_imag.close();
+                    }
+
                 }
-                output_real << endl;
-                output_imag << endl;
             }
-            output_real.close();
-            output_imag.close();
         }
-      }
-	}
+    }
     Streams::out << "finished calc" << endl;
 }
 

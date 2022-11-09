@@ -43,9 +43,12 @@ int main(int argc, char **argv){
 	// {
 		// string old_outFile = "";
 		string outFile;
-		unsigned resolution = 256;
-		double max_val = 1.75;
+		unsigned resolution = 512;
 		double min_val = 1.65;
+		double max_val = 1.85;
+
+		unsigned system_size = 51;
+		double mu = -0.5;
 		// for(unsigned alpha = 0; alpha < resolution*max_val; alpha++){
 		// 	double a = static_cast<double>(alpha)/resolution*0.1;
 		// 	outFile = "alpha_" + to_string(a) +  "mu_" + "-0.5" + "_alpha_test"; 
@@ -71,13 +74,23 @@ int main(int argc, char **argv){
 					double Vz = vz/static_cast<double>(resolution);
 					// double Vz = 1.599609;//vz/32.0;
 
-					// outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos); 
+					// outFile = "vz_" + to_string(Vz) +  "mu_" + "-0.5"  + "phase_" + to_string(phase) + "_diag_size151_probeNewPos_" + to_string(pos);
 					// outFile = "vz_" + to_string(Vz) +  "Eigenstates_calc_single_soc_";
 					
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size15_sc";
-					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size101_p_wave";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size151_sc";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWave";
+					outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWaveUp";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta151";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_nosc_delta51";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_ImpurityLevelSOC";
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "phase_0.000000" + "_diag_size151_probeNewPos_0_" + "delta_000.csv";
-					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "_diag_size15_sc_" + "delta_000.csv";
+					
+					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5_diag_size15_sc_delta_000.csv";
+					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5phase_0.000000_diag_size151_probeNewPos_0_delta_000.csv";
+					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5size51_sc_delta_000.csv";
+					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5_diag_size151_sc_delta_000.csv";
+					
 					if(!file_exists(outFile)) // & file_exists(delta_input_file))
 					{
 						ofstream output(outFile);
@@ -86,6 +99,8 @@ int main(int argc, char **argv){
 						// calc.setMu(Mu);
 						// if(old_outFile != "")
 						// {
+						calc.setMu(mu);
+						calc.setSystem_length(system_size);
 						// calc.readDeltaCsv(0, delta_input_file);
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
