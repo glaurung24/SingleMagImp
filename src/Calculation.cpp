@@ -46,7 +46,7 @@ complex<double> Calculation::mu;
 complex<double> Calculation::Vz;
 complex<double> Calculation::t;
 complex<double> Calculation::alpha;
-complex<double> Calculation::delta_p;
+complex<double> Calculation::delta_p_start;
 complex<double> Calculation::delta_s_bond;
 complex<double> Calculation::delta_start;
 complex<double> Calculation::delta_Delta;
@@ -58,8 +58,10 @@ double Calculation::phase;
 unsigned int Calculation::probe_length;
 complex<double> Calculation::delta_probe;
 complex<double> Calculation::mu_probe;
+complex<double> Calculation::coupling_potential_p;
 
 Calculation::FunctionDelta Calculation::functionDelta;
+Calculation::FunctionDeltaP Calculation::functionDeltaP;
 // Calculation::FunctionDeltaProbe Calculation::functionDeltaProbe;
 // Calculation::FunctionDeltaDelta Calculation::functionDeltaDelta;
 Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
@@ -67,8 +69,12 @@ Calculation::SelfConsistencyCallback Calculation::selfConsistencyCallback;
 const double Calculation::EPS = 1E-4;
 const complex<double> Calculation::I = complex<double>(0.0, 1.0);
 
-TBTK::Array<complex<double>> Calculation::delta;
+Array<complex<double>> Calculation::delta;
 Array<complex<double>> Calculation::delta_old;
+Array<complex<double>> Calculation::delta_px;
+Array<complex<double>> Calculation::delta_px_old;
+Array<complex<double>> Calculation::delta_py;
+Array<complex<double>> Calculation::delta_py_old;
 
 bool Calculation::symmetry_on;
 bool Calculation::use_gpu;
@@ -106,13 +112,13 @@ Calculation::~Calculation()
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
     system_length = 100;
-    delta_simulation_size = 101;
+    delta_simulation_size = 100;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
 
     delta_start = 0.115490; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
-    delta_p = 0.1*delta_start;
+    delta_p_start = 0.1*delta_start;
     delta_s_bond = 0.1*delta_start;
     
     t = 1;
@@ -128,7 +134,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     flat_tip = false;
     model_hubbard_model = false;
     calculate_waveFcts = true;
-    p_wave_sc = true;
+    p_wave_sc = false;
 
     tip_position = system_size/2;
     
@@ -137,7 +143,10 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // A coupling potential of 2.5 gives a delta of 0.551213123012
     // A coupling potential of 1.475 gives a delta of 0.103229725288
     coupling_potential = 1.475; //2.0, 1.5 //TODO change back!!!
+    coupling_potential_p = coupling_potential*0.1; //2.0, 1.5 //TODO change back!!!
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
+    delta_px = Array<complex<double>>({system_size, system_size}, delta_p_start);
+    delta_py = Array<complex<double>>({system_size, system_size}, delta_p_start);
 
      // //Put random distribution into delta
     //  srand((unsigned)time(0)); 
@@ -150,12 +159,16 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // } 
 
     delta_old = delta;
+    delta_px_old = delta_px;
+    delta_py_old = delta_py;
     symmetry_on = false;
     #ifdef GPU_CALCULATION
     use_gpu = true;
     chebychev_coefficients = 20000; //old: 25000
     energy_points = chebychev_coefficients * 2;
     #else
+    chebychev_coefficients = 20000;
+    energy_points = chebychev_coefficients * 2;
     use_gpu = false;
     #endif
 
@@ -175,6 +188,8 @@ void Calculation::setSystem_length(unsigned int lenght)
     system_length = lenght;
     system_size = system_length + 1;
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
+    delta_px = Array<complex<double>>({system_size, system_size}, delta_p_start);
+    delta_py = Array<complex<double>>({system_size, system_size}, delta_p_start);
 }
 
 // void Calculation::readDeltaHdf5(int nr_sc_loop, string filename = "")
@@ -365,6 +380,18 @@ void Calculation::InitModel()
                             {x, 0, spin, ph, 0},
                             {x, y, spin, ph, 0}
                         ) + HC; 
+                    }
+                    if(p_wave_sc){
+                        model << HoppingAmplitude(
+                            functionDeltaP,
+                            {x, y, spin, ph, 0},
+                            {(x+1)%system_size, y, spin, (ph+1)%2, 0}
+                        ) + HC;
+                        model << HoppingAmplitude(
+                            functionDeltaP,
+                            {x, y, spin, ph, 0},
+                            {x, (y+1)%system_size, spin, (ph+1)%2, 0}
+                        ) + HC;
                     }
                 }
                 model << HoppingAmplitude(
@@ -727,12 +754,12 @@ void Calculation::addPWaveBond(const Index& pos){
     int y = pos.at(1);
     for(unsigned spin = 0; spin < 2; spin++){
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 0, 0},
             {x, y, spin, 1, 1}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 1, 0},
             {x, y, spin, 0, 1}
         ) + HC;
@@ -821,22 +848,22 @@ void Calculation::addUpDownPwaveBond(const Index& pos){
     int y = pos.at(1);
 
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, 0, 0, 0},
         {x, y, 1, 1, 1}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, 1, 0, 0},
         {x, y, 0, 1, 1}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, 0, 1, 0},
         {x, y, 1, 0, 1}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, 1, 1, 0},
         {x, y, 0, 0, 1}
     ) + HC;
@@ -848,42 +875,42 @@ void Calculation::addPWave(const Index& pos){
 
     for(unsigned spin = 0; spin < 2; spin++){
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 0, 0},
             {x+1, y, spin, 1, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 1, 0},
             {x+1, y, spin, 0, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 0, 0},
             {x-1, y, spin, 1, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 1, 0},
             {x-1, y, spin, 0, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 0, 0},
             {x, y+1, spin, 1, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 1, 0},
             {x, y+1, spin, 0, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 0, 0},
             {x, y-1, spin, 1, 0}
         ) + HC;
         model << HoppingAmplitude(
-            delta_p,
+            delta_p_start,
             {x, y, spin, 1, 0},
             {x, y-1, spin, 0, 0}
         ) + HC;
@@ -898,42 +925,42 @@ void Calculation::addPWaveUP(const Index& pos){
     unsigned spin = 0;
 
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 0, 0},
         {x+1, y, spin, 1, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 1, 0},
         {x+1, y, spin, 0, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 0, 0},
         {x-1, y, spin, 1, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 1, 0},
         {x-1, y, spin, 0, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 0, 0},
         {x, y+1, spin, 1, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 1, 0},
         {x, y+1, spin, 0, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 0, 0},
         {x, y-1, spin, 1, 0}
     ) + HC;
     model << HoppingAmplitude(
-        delta_p,
+        delta_p_start,
         {x, y, spin, 1, 0},
         {x, y-1, spin, 0, 0}
     ) + HC;
@@ -969,6 +996,37 @@ complex<double> Calculation::FunctionDelta::getHoppingAmplitude(const Index& fro
     //     Streams::err << "something went wrong in Calculation::FuncDelta." << endl;
     //     return 0;
     // }
+}
+
+complex<double> Calculation::FunctionDeltaP::getHoppingAmplitude(const Index& from, const Index& to) const
+{
+    unsigned int from_x = from.at(0);
+    unsigned int to_x = to.at(0);
+    unsigned int from_y = from.at(1);
+    unsigned int from_spin = from.at(2);
+    unsigned int from_ph = from.at(3);
+
+    if(from_spin == 1){
+        return 0.0;
+    }
+    // unsigned int from_ph = from.at(4);
+    if(from_x == to_x){
+        if(from_ph){
+            return conj(delta_py[{from_x, from_y}]);
+        } 
+        else{
+            return delta_py[{from_x, from_y}];
+        }
+    }
+    else{
+        if(from_ph){
+            return conj(delta_px[{from_x, from_y}]);
+        } 
+        else{
+            return delta_px[{from_x, from_y}];
+        } 
+    }
+
 }
 
 // complex<double> Calculation::FunctionDeltaDelta::getHoppingAmplitude(const Index& from, const Index& to) const
@@ -1018,13 +1076,15 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
 {
     #ifdef GPU_CALCULATION
     PropertyExtractor::ChebyshevExpander pe(solver);
+
     #else
+    solver.run();
     PropertyExtractor::Diagonalizer pe(solver);
     #endif 
 
+
+
     pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
-
-
 
 
 
@@ -1039,8 +1099,9 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
 
         #pragma omp parallel for
         for(unsigned int y = position; y <= x; y++)
-        {                   
-            delta_temp[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{x, y, 1,0,0})*coupling_potential*0.5 + delta_old[{x , y}]*0.5);
+        {      
+            complex<double> delta_new = (-pe.calculateExpectationValue({x,y, 0,0, 0},{x, y, 1,1,0}))*coupling_potential; //TODO why 0.5?
+            delta_temp[{x , y}] = (delta_new*0.5 + delta_old[{x , y}]*0.5);
             if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/abs(delta_start) > diff)
             {
                 diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
@@ -1048,6 +1109,14 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
         }
     }
     diff = diff/abs(delta_start);
+
+    bool p_wave_converge = false;
+    if(p_wave_sc){
+        p_wave_converge = pWaveScCalc(solver);
+    }
+    else{
+        p_wave_converge = true;
+    }
 
     for(unsigned int x=position; x < system_size; x++)
     {
@@ -1071,8 +1140,8 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     }
 
 
-    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}]/delta_start)) << ", ddelta = " << to_string(real(diff/delta_start)) << endl;
-    if(abs(diff/delta_start) < EPS)
+    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(real(diff/delta_start)) << endl;
+    if((abs(diff/delta_start) < EPS) & p_wave_converge)
     {
         cout << "finished self consistency loop" << endl;
         return true;
@@ -1082,6 +1151,82 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
         return false;
     }
 }
+
+#ifdef GPU_CALCULATION
+bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::ChebyshevExpander &solver){
+#else
+bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::Diagonalizer &solver){
+#endif 
+
+    #ifdef GPU_CALCULATION
+    PropertyExtractor::ChebyshevExpander pe(solver);
+
+    #else
+    PropertyExtractor::Diagonalizer pe(solver);
+    #endif 
+
+    pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
+
+    delta_px_old = delta_px;
+    delta_py_old = delta_py;
+    Array<complex<double>> delta_tempx = delta_px;
+    Array<complex<double>> delta_tempy = delta_py;
+    double diff = 0.0;
+    unsigned int position = system_size/2;
+
+    for(unsigned int x=position; x < system_size; x++)
+    {
+
+        #pragma omp parallel for
+        for(unsigned int y = position; y <= x; y++)
+        {                   
+            delta_tempx[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{(x+1)%system_size, y, 0,0,0})*coupling_potential_p*0.5 + delta_px_old[{x , y}]*0.5);
+            delta_tempy[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{x, (y+1)%system_size, 0,0,0})*coupling_potential_p*0.5 + delta_py_old[{x , y}]*0.5);
+            if(abs((delta_tempx[{x , y}]-delta_px_old[{x , y}]))/abs(delta_p_start) > diff)
+            {
+                diff = abs(delta_tempx[{x , y}]-delta_px_old[{x , y}]);
+            }
+        }
+    }
+    for(unsigned int x=position; x < system_size; x++)
+    {
+        for(unsigned int y = position; y <= x; y++)
+        {
+            //Upper half
+            //right
+            delta_px[{x , y}] = delta_tempx[{x , y}];
+            delta_px[{y , x}] = delta_tempx[{x , y}];
+            delta_py[{x , y}] = delta_tempy[{x , y}];
+            delta_py[{y , x}] = delta_tempy[{x , y}];
+            //left
+            delta_px[{2*position-x , y}] = delta_tempx[{x , y}];
+            delta_px[{y , 2*position-x}] = delta_tempx[{x , y}];
+            delta_py[{2*position-x , y}] = delta_tempy[{x , y}];
+            delta_py[{y , 2*position-x}] = delta_tempy[{x , y}];
+            //Lower half
+            //left
+            delta_px[{2*position-x , 2*position-y}] = delta_tempx[{x , y}];
+            delta_px[{2*position-y , 2*position-x}] = delta_tempx[{x , y}];
+            delta_py[{2*position-x , 2*position-y}] = delta_tempy[{x , y}];
+            delta_py[{2*position-y , 2*position-x}] = delta_tempy[{x , y}];
+            //right
+            delta_px[{x , 2*position-y}] = delta_tempx[{x , y}];
+            delta_px[{2*position-y , x}] = delta_tempx[{x , y}];
+            delta_py[{x , 2*position-y}] = delta_tempy[{x , y}];
+            delta_py[{2*position-y , x}] = delta_tempy[{x , y}];
+        }
+    }
+    if(abs(diff/delta_p_start) < EPS)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
 
 void Calculation::DoScCalc()
 {
@@ -1546,6 +1691,10 @@ void Calculation::WriteDelta(int nr_loop)
     string filename = DeltaOutputFilename(nr_loop);
     Exporter exporter;
     exporter.save(GetRealVec(delta), filename + ".csv" );
+    if(p_wave_sc){
+        exporter.save(GetRealVec(delta_px), filename + "px_wave.csv" );
+        exporter.save(GetRealVec(delta_py), filename + "py_wave.csv" );
+    }
 
     // if(nr_loop == 0)
     // {

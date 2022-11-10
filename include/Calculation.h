@@ -81,6 +81,7 @@ class Calculation
         void addLocalSwaveBonds(const Index& pos);
         void addPWaveUP(const Index& pos);
         
+        
 
         class FunctionDelta : 
         public HoppingAmplitude::AmplitudeCallback
@@ -89,6 +90,14 @@ class Calculation
             
         };
         static FunctionDelta functionDelta;
+
+        class FunctionDeltaP : 
+        public HoppingAmplitude::AmplitudeCallback
+        {
+                complex<double> getHoppingAmplitude(const Index&, const Index&) const;
+            
+        };
+        static FunctionDeltaP functionDeltaP;
 
         // class FunctionDeltaProbe : 
         // public HoppingAmplitude::AmplitudeCallback
@@ -111,6 +120,7 @@ class Calculation
 	{
 		public:
                 bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
+                bool pWaveScCalc(Solver::ChebyshevExpander &solver);
         };
         static SelfConsistencyCallback selfConsistencyCallback;
 	#else
@@ -119,6 +129,7 @@ class Calculation
         {
 		public:
                 bool selfConsistencyCallback(Solver::Diagonalizer &solver);
+                bool pWaveScCalc(Solver::Diagonalizer &solver);
                 
         };
         static SelfConsistencyCallback selfConsistencyCallback;
@@ -146,14 +157,15 @@ class Calculation
         static complex<double> t_probe_sample;
         static complex<double> t_sample_imp;
         static complex<double> alpha;
-        static complex<double> delta_p;
         static complex<double> delta_s_bond;
         static double phase;
         static unsigned int probe_length;
         static complex<double> delta_start;
+        static complex<double> delta_p_start;
         static complex<double> delta_probe;
         static complex<double> delta_Delta;
         static complex<double> coupling_potential;
+        static complex<double> coupling_potential_p;
 
         static const complex<double> I;
         static const double EPS;
@@ -167,6 +179,10 @@ class Calculation
         
         static Array<complex<double>> delta;
         static Array<complex<double>> delta_old;
+        static Array<complex<double>> delta_px;
+        static Array<complex<double>> delta_px_old;
+        static Array<complex<double>> delta_py;
+        static Array<complex<double>> delta_py_old;
 
         static string outputFileName;
 
