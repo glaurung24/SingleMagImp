@@ -111,14 +111,19 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 100;
-    delta_simulation_size = 100;
+    system_length = 300;
+    delta_simulation_size = 101;
     system_size = system_length + 1;
 
     probe_length = system_size^2;
 
+    p_wave_sc = false;
+
     delta_start = 0.115490; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
-    delta_p_start = 0.1*delta_start;
+    if(p_wave_sc){
+        delta_start = 0.078069;
+    }
+    delta_p_start = 0.0001*delta_start;
     delta_s_bond = 0.1*delta_start;
     
     t = 1;
@@ -133,8 +138,9 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     model_tip = false;
     flat_tip = false;
     model_hubbard_model = false;
+
     calculate_waveFcts = true;
-    p_wave_sc = false;
+    
 
     tip_position = system_size/2;
     
@@ -143,7 +149,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // A coupling potential of 2.5 gives a delta of 0.551213123012
     // A coupling potential of 1.475 gives a delta of 0.103229725288
     coupling_potential = 1.475; //2.0, 1.5 //TODO change back!!!
-    coupling_potential_p = coupling_potential*0.1; //2.0, 1.5 //TODO change back!!!
+    coupling_potential_p = coupling_potential*0.01; 
     delta = Array<complex<double>>({system_size, system_size}, delta_start);
     delta_px = Array<complex<double>>({system_size, system_size}, delta_p_start);
     delta_py = Array<complex<double>>({system_size, system_size}, delta_p_start);
@@ -164,15 +170,15 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     symmetry_on = false;
     #ifdef GPU_CALCULATION
     use_gpu = true;
-    chebychev_coefficients = 20000; //old: 25000
-    energy_points = chebychev_coefficients * 2;
+    chebychev_coefficients = 1E5; //20000; //old: 25000
+    energy_points = static_cast<int>(chebychev_coefficients * 2.1);
     #else
     chebychev_coefficients = 20000;
     energy_points = chebychev_coefficients * 2;
     use_gpu = false;
     #endif
 
-    energy_bandwidth = 8;
+    energy_bandwidth = 10;
     max_sc_iterations = 300;
 
     max_arnoldi_iterations = 20000;
@@ -400,6 +406,7 @@ void Calculation::InitModel()
                     {x, y, spin, 0, 0},
                     {x, y, (spin+1)%2, 1, 0}
                 ) + HC;
+                addSOC({x,y});
             }
             
             
@@ -1084,7 +1091,7 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
 
 
 
-    pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
+    pe.setEnergyWindow(-0.5*energy_bandwidth, 0, energy_points/2);
 
 
 
@@ -1092,15 +1099,26 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     delta_old = delta;
     Array<complex<double>> delta_temp = delta;
     double diff = 0.0;
+    unsigned int sc_boundary;
+    bool limited_sc_area = delta_simulation_size < system_size;
+    if (limited_sc_area){
+
+        sc_boundary = system_size - (system_size - delta_simulation_size)/2;
+    }
+    else{
+        sc_boundary = 0;
+    }
+    
 
     unsigned int position = system_size/2;
-    for(unsigned int x=position; x < system_size; x++)
+
+    for(unsigned int x=position; x < sc_boundary; x++)
     {
 
         #pragma omp parallel for
         for(unsigned int y = position; y <= x; y++)
         {      
-            complex<double> delta_new = (-pe.calculateExpectationValue({x,y, 0,0, 0},{x, y, 1,1,0}))*coupling_potential; //TODO why 0.5?
+            complex<double> delta_new = (-pe.calculateExpectationValue({x,y, 0,0, 0},{x, y, 1,1,0}))*coupling_potential;
             delta_temp[{x , y}] = (delta_new*0.5 + delta_old[{x , y}]*0.5);
             if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/abs(delta_start) > diff)
             {
@@ -1117,8 +1135,9 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     else{
         p_wave_converge = true;
     }
-
-    for(unsigned int x=position; x < system_size; x++)
+    unsigned int nr_edge_sites = 0;
+    complex<double> avg_delta_bulk = 0;
+    for(unsigned int x=position; x < sc_boundary; x++)
     {
         for(unsigned int y = position; y <= x; y++)
         {
@@ -1137,9 +1156,24 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
             delta[{x , 2*position-y}] = delta_temp[{x , y}];
             delta[{2*position-y , x}] = delta_temp[{x , y}];
         }
+        
+        avg_delta_bulk += delta_temp[{sc_boundary-1, x}];
+        avg_delta_bulk += delta_temp[{x, sc_boundary-1}];
+        nr_edge_sites += 2;
     }
+    avg_delta_bulk /= nr_edge_sites;
 
-
+    // Adjust the bulk delta outside the self consistent region
+    unsigned edge_width = (system_size -sc_boundary)/2;
+    for(unsigned int x=0; x < edge_width; x++)
+    {
+        for(unsigned int y = 0; y <= edge_width; y++)
+        {
+            delta[{x , y}] = avg_delta_bulk;
+            delta[{x+sc_boundary , y + sc_boundary}] = avg_delta_bulk;
+        }
+    }
+    
     Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(real(diff/delta_start)) << endl;
     if((abs(diff/delta_start) < EPS) & p_wave_converge)
     {
@@ -1216,6 +1250,9 @@ bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::Diagonalizer &sol
             delta_py[{2*position-y , x}] = delta_tempy[{x , y}];
         }
     }
+
+
+    Streams::out << "Updated deltap = " << to_string(real(delta_tempx[{position,position}])) << ", ddeltap = " << to_string(real(diff/delta_p_start)) << endl;
     if(abs(diff/delta_p_start) < EPS)
     {
         return true;
@@ -1233,11 +1270,12 @@ void Calculation::DoScCalc()
     model.construct();
     solver.setModel(model);
     #ifdef GPU_CALCULATION
-    solver.setScaleFactor(4*energy_bandwidth);
+    solver.setScaleFactor(energy_bandwidth);
     solver.setNumCoefficients(chebychev_coefficients);
-    solver.setUseLookupTable(use_gpu);
+    solver.setUseLookupTable(true);
     solver.setCalculateCoefficientsOnGPU(use_gpu);
     #endif
+
     cout << "@sc calc" << system_size  << endl;
     for(unsigned int loop_counter = 0; loop_counter < max_sc_iterations; loop_counter++)
     {

@@ -43,11 +43,11 @@ int main(int argc, char **argv){
 	// {
 		// string old_outFile = "";
 		string outFile;
-		unsigned resolution = 64;
-		double min_val = 1.65;
-		double max_val = 1.85;
+		unsigned resolution = 32;
+		double min_val = 1.0;
+		double max_val = 1.4;
 
-		unsigned system_size = 100;
+		unsigned system_size = 300;
 		double mu = -0.5;
 		// for(unsigned alpha = 0; alpha < resolution*max_val; alpha++){
 		// 	double a = static_cast<double>(alpha)/resolution*0.1;
@@ -78,10 +78,12 @@ int main(int argc, char **argv){
 					// outFile = "vz_" + to_string(Vz) +  "Eigenstates_calc_single_soc_";
 					
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size15_sc";
-					outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size + 1) + "_sc";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size + 1) + "testvzsign_sc";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWave";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWaveUp";
-					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta151";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta51" + "_carefullbelow";
+					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta101" + "_cheby_cpu";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta51" + "_soc";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_nosc_delta51";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_ImpurityLevelSOC";
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_" + "-0.5" + "phase_0.000000" + "_diag_size151_probeNewPos_0_" + "delta_000.csv";
@@ -90,8 +92,10 @@ int main(int argc, char **argv){
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5phase_0.000000_diag_size151_probeNewPos_0_delta_000.csv";
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5size51_sc_delta_000.csv";
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5_diag_size151_sc_delta_000.csv";
+					// string delta_input_file = "vz_" + to_string(Vz) +  "mu_" + to_string(mu) +  "_diag_size15_sc_delta_000.csv";
+					// string delta_input_file = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta31" + "_ed_delta_000.csv";
 					
-					if(!file_exists(outFile)) // & file_exists(delta_input_file))
+					if(!file_exists(outFile)) //  & file_exists(delta_input_file))
 					{
 						ofstream output(outFile);
 						Calculation calc(outFile, complex<double>(Vz));
@@ -112,11 +116,11 @@ int main(int argc, char **argv){
 						//  cout << to_string(real(dD)) << endl;
 						calc.InitModel();
 						calc.DoScCalc();
-						calc.WriteOutputSc();
+						// calc.WriteOutputSc();
 						// calc.DoCalc();
 						// calc.WriteOutput();
 						// calc.CalcEigenstates();
-						// calc.WriteDelta(0);
+						calc.WriteDelta(0);
 						
 					}
 			//}
