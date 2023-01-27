@@ -1,14 +1,15 @@
 #pragma once
 
-#define GPU_CALCULATION
+// #define GPU_CALCULATION
 
 #include <complex>
 
 #include "TBTK/Model.h"
 
 #ifdef GPU_CALCULATION
-#include "TBTK/Solver/ChebyshevExpander.h"
-#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+// #include "TBTK/Solver/ChebyshevExpander.h"
+// #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#include "EPOCHSolver.h"
 #else
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
 #include "TBTK/Solver/Diagonalizer.h"
@@ -43,6 +44,7 @@ class Calculation
         void setcoupling_potential(complex<double>);
         void setTipPosition(unsigned int);
 	void setSystem_length(unsigned int);
+        void setDeltaSimulationSize(const unsigned& value);
         void AddDefects(int);
         // void readDeltaHdf5(int, string);
         void readDeltaCsv(int, string);
@@ -119,8 +121,8 @@ class Calculation
     class SelfConsistencyCallback
 	{
 		public:
-                bool selfConsistencyCallback(Solver::ChebyshevExpander &solver);
-                bool pWaveScCalc(Solver::ChebyshevExpander &solver);
+                bool selfConsistencyCallback(Solver::EPOCHSolver &solver);
+                bool pWaveScCalc(Solver::EPOCHSolver &solver);
         };
         static SelfConsistencyCallback selfConsistencyCallback;
 	#else
@@ -166,13 +168,15 @@ class Calculation
         static complex<double> delta_Delta;
         static complex<double> coupling_potential;
         static complex<double> coupling_potential_p;
+        static double temperature;
 
         static const complex<double> I;
         static const double EPS;
 
         static Solver::ArnoldiIterator Asolver;
         #ifdef GPU_CALCULATION
-        static Solver::ChebyshevExpander solver;
+        // static Solver::ChebyshevExpander solver;
+        static Solver::EPOCHSolver solver;
         #else
         static Solver::Diagonalizer solver;
         #endif
@@ -198,3 +202,7 @@ class Calculation
 
         Model model;
 };
+
+inline void Calculation::setDeltaSimulationSize(const unsigned& value){
+        this->delta_simulation_size = value;
+}

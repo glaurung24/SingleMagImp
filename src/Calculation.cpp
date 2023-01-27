@@ -2,8 +2,9 @@
 
 #include "TBTK/Model.h"
 #ifdef GPU_CALCULATION
-#include "TBTK/Solver/ChebyshevExpander.h"
-#include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+// #include "TBTK/Solver/ChebyshevExpander.h"
+// #include "TBTK/PropertyExtractor/ChebyshevExpander.h"
+#include "EPOCHSolver.h"
 #else
 #include "TBTK/Solver/Diagonalizer.h"
 #include "TBTK/PropertyExtractor/Diagonalizer.h"
@@ -19,6 +20,7 @@
 #include "TBTK/Array.h"
 #include "TBTK/Exporter.h"
 #include "TBTK/Smooth.h"
+#include "TBTK/UnitHandler.h"
 // #include "TBTK/Resource.h"
 // #include "TBTK/FileReader.h"
 // #include "TBTK/FileWriter.h"
@@ -59,6 +61,7 @@ unsigned int Calculation::probe_length;
 complex<double> Calculation::delta_probe;
 complex<double> Calculation::mu_probe;
 complex<double> Calculation::coupling_potential_p;
+double Calculation::temperature;
 
 Calculation::FunctionDelta Calculation::functionDelta;
 Calculation::FunctionDeltaP Calculation::functionDeltaP;
@@ -85,7 +88,8 @@ bool Calculation::p_wave_sc;
 Solver::ArnoldiIterator Calculation::Asolver;
 
 #ifdef GPU_CALCULATION
-Solver::ChebyshevExpander Calculation::solver;
+// Solver::ChebyshevExpander Calculation::solver;
+Solver::EPOCHSolver Calculation::solver;
 #else
 Solver::Diagonalizer Calculation::solver;
 #endif
@@ -111,20 +115,22 @@ Calculation::~Calculation()
 
 void Calculation::Init(string outputfilename, complex<double> vz_input)
 {
-    system_length = 300;
-    delta_simulation_size = 101;
-    system_size = system_length + 1;
-
-    probe_length = system_size^2;
-
-    p_wave_sc = false;
-
+    system_length = 30;
+    delta_simulation_size = 31;
     delta_start = 0.115490; //0.12188909765277404; // 0.103229725288; //0.551213123012; //0.0358928467732;
     if(p_wave_sc){
         delta_start = 0.078069;
     }
     delta_p_start = 0.0001*delta_start;
     delta_s_bond = 0.1*delta_start;
+    setSystem_length(system_length);
+
+    probe_length = system_size^2;
+
+    p_wave_sc = false;
+
+
+
     
     t = 1;
     mu = -0.5; //-1.1, 2.5
@@ -139,6 +145,9 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     flat_tip = false;
     model_hubbard_model = false;
 
+
+    temperature = 0.000/UnitHandler::getConstantInBaseUnits("k_B");
+
     calculate_waveFcts = true;
     
 
@@ -150,9 +159,6 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     // A coupling potential of 1.475 gives a delta of 0.103229725288
     coupling_potential = 1.475; //2.0, 1.5 //TODO change back!!!
     coupling_potential_p = coupling_potential*0.01; 
-    delta = Array<complex<double>>({system_size, system_size}, delta_start);
-    delta_px = Array<complex<double>>({system_size, system_size}, delta_p_start);
-    delta_py = Array<complex<double>>({system_size, system_size}, delta_p_start);
 
      // //Put random distribution into delta
     //  srand((unsigned)time(0)); 
@@ -170,7 +176,7 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     symmetry_on = false;
     #ifdef GPU_CALCULATION
     use_gpu = true;
-    chebychev_coefficients = 1E5; //20000; //old: 25000
+    chebychev_coefficients = 10;//1E5; //20000; //old: 25000
     energy_points = static_cast<int>(chebychev_coefficients * 2.1);
     #else
     chebychev_coefficients = 20000;
@@ -178,12 +184,16 @@ void Calculation::Init(string outputfilename, complex<double> vz_input)
     use_gpu = false;
     #endif
 
-    energy_bandwidth = 10;
+    energy_bandwidth = 6;
     max_sc_iterations = 300;
 
     max_arnoldi_iterations = 20000;
     num_eigenvals = 1500;
     num_lanczos_vecs = 2*num_eigenvals;
+    if(num_lanczos_vecs > system_size*system_size*4){
+        num_lanczos_vecs = system_size*system_size*4;
+        num_eigenvals = num_lanczos_vecs/2;
+    }
 
     outputFileName = outputfilename;
 }
@@ -347,6 +357,8 @@ Array<complex<double>> Calculation::deltaPadding(Array<complex<double>>  input, 
 void Calculation::InitModel()
 {
     model = Model();
+    model.setStatistics(Statistics::FermiDirac);
+    model.setTemperature(temperature);
     impurity_level_present = false; //Will be set to true in functions that add an extra impurity layer
     for(int x = 0; x < system_size; x++){
         for(int y = 0; y < system_size; y++){
@@ -1076,18 +1088,19 @@ complex<double> Calculation::FunctionDeltaP::getHoppingAmplitude(const Index& fr
 // }
 
 #ifdef GPU_CALCULATION
-bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::ChebyshevExpander &solver)
+bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::EPOCHSolver &solver)
 #else
 bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diagonalizer &solver)
 #endif 
 {
     #ifdef GPU_CALCULATION
-    PropertyExtractor::ChebyshevExpander pe(solver);
+    // PropertyExtractor::ChebyshevExpander pe(solver);
 
     #else
     solver.run();
     PropertyExtractor::Diagonalizer pe(solver);
     #endif 
+
 
 
 
@@ -1106,31 +1119,32 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
         sc_boundary = system_size - (system_size - delta_simulation_size)/2;
     }
     else{
-        sc_boundary = 0;
+        sc_boundary = system_size;
     }
     
-
     unsigned int position = system_size/2;
 
     for(unsigned int x=position; x < sc_boundary; x++)
     {
-
         #pragma omp parallel for
         for(unsigned int y = position; y <= x; y++)
         {      
             complex<double> delta_new = (-pe.calculateExpectationValue({x,y, 0,0, 0},{x, y, 1,1,0}))*coupling_potential;
-            delta_temp[{x , y}] = (delta_new*0.5 + delta_old[{x , y}]*0.5);
-            if(abs((delta_temp[{x , y}]-delta_old[{x , y}]))/abs(delta_start) > diff)
+            delta_temp[{x , y}] = (delta_new*0.2 + delta_old[{x , y}]*0.8);
+        }
+
+        for(unsigned int y = position; y <= x; y++)
+        {   
+            double diff_new = abs((delta_temp[{x , y}]-delta_old[{x , y}]));
+            if(diff_new > diff)
             {
-                diff = abs(delta_temp[{x , y}]-delta_old[{x , y}]);
+                diff = diff_new;
             }
         }
     }
-    diff = diff/abs(delta_start);
-
     bool p_wave_converge = false;
     if(p_wave_sc){
-        p_wave_converge = pWaveScCalc(solver);
+        // p_wave_converge = pWaveScCalc(solver);
     }
     else{
         p_wave_converge = true;
@@ -1161,21 +1175,25 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
         avg_delta_bulk += delta_temp[{x, sc_boundary-1}];
         nr_edge_sites += 2;
     }
-    avg_delta_bulk /= nr_edge_sites;
 
-    // Adjust the bulk delta outside the self consistent region
-    unsigned edge_width = (system_size -sc_boundary)/2;
-    for(unsigned int x=0; x < edge_width; x++)
-    {
-        for(unsigned int y = 0; y <= edge_width; y++)
+    if(system_size != delta_simulation_size){
+        avg_delta_bulk /= nr_edge_sites;
+
+        // Adjust the bulk delta outside the self consistent region
+        unsigned edge_width = (system_size -sc_boundary)/2;
+        for(unsigned int x=0; x < edge_width; x++)
         {
-            delta[{x , y}] = avg_delta_bulk;
-            delta[{x+sc_boundary , y + sc_boundary}] = avg_delta_bulk;
+            for(unsigned int y = 0; y <= edge_width; y++)
+            {
+                delta[{x , y}] = avg_delta_bulk;
+                delta[{x+sc_boundary , y + sc_boundary}] = avg_delta_bulk;
+            }
         }
     }
+
     
-    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(real(diff/delta_start)) << endl;
-    if((abs(diff/delta_start) < EPS) & p_wave_converge)
+    Streams::out << "Updated delta = " << to_string(real(delta_temp[{position,position}])) << ", ddelta = " << to_string(real(diff)) << endl;
+    if((abs(diff) < EPS*abs(delta_start)) & p_wave_converge)
     {
         cout << "finished self consistency loop" << endl;
         return true;
@@ -1186,82 +1204,82 @@ bool Calculation::SelfConsistencyCallback::selfConsistencyCallback(Solver::Diago
     }
 }
 
-#ifdef GPU_CALCULATION
-bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::ChebyshevExpander &solver){
-#else
-bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::Diagonalizer &solver){
-#endif 
+// #ifdef GPU_CALCULATION
+// bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::ChebyshevExpander &solver){
+// #else
+// bool Calculation::SelfConsistencyCallback::pWaveScCalc(Solver::Diagonalizer &solver){
+// #endif 
 
-    #ifdef GPU_CALCULATION
-    PropertyExtractor::ChebyshevExpander pe(solver);
+//     #ifdef GPU_CALCULATION
+//     PropertyExtractor::ChebyshevExpander pe(solver);
 
-    #else
-    PropertyExtractor::Diagonalizer pe(solver);
-    #endif 
+//     #else
+//     PropertyExtractor::Diagonalizer pe(solver);
+//     #endif 
 
-    pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
+//     pe.setEnergyWindow(-1*energy_bandwidth, 0, energy_points/2);
 
-    delta_px_old = delta_px;
-    delta_py_old = delta_py;
-    Array<complex<double>> delta_tempx = delta_px;
-    Array<complex<double>> delta_tempy = delta_py;
-    double diff = 0.0;
-    unsigned int position = system_size/2;
+//     delta_px_old = delta_px;
+//     delta_py_old = delta_py;
+//     Array<complex<double>> delta_tempx = delta_px;
+//     Array<complex<double>> delta_tempy = delta_py;
+//     double diff = 0.0;
+//     unsigned int position = system_size/2;
 
-    for(unsigned int x=position; x < system_size; x++)
-    {
+//     for(unsigned int x=position; x < system_size; x++)
+//     {
 
-        #pragma omp parallel for
-        for(unsigned int y = position; y <= x; y++)
-        {                   
-            delta_tempx[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{(x+1)%system_size, y, 0,0,0})*coupling_potential_p*0.5 + delta_px_old[{x , y}]*0.5);
-            delta_tempy[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{x, (y+1)%system_size, 0,0,0})*coupling_potential_p*0.5 + delta_py_old[{x , y}]*0.5);
-            if(abs((delta_tempx[{x , y}]-delta_px_old[{x , y}]))/abs(delta_p_start) > diff)
-            {
-                diff = abs(delta_tempx[{x , y}]-delta_px_old[{x , y}]);
-            }
-        }
-    }
-    for(unsigned int x=position; x < system_size; x++)
-    {
-        for(unsigned int y = position; y <= x; y++)
-        {
-            //Upper half
-            //right
-            delta_px[{x , y}] = delta_tempx[{x , y}];
-            delta_px[{y , x}] = delta_tempx[{x , y}];
-            delta_py[{x , y}] = delta_tempy[{x , y}];
-            delta_py[{y , x}] = delta_tempy[{x , y}];
-            //left
-            delta_px[{2*position-x , y}] = delta_tempx[{x , y}];
-            delta_px[{y , 2*position-x}] = delta_tempx[{x , y}];
-            delta_py[{2*position-x , y}] = delta_tempy[{x , y}];
-            delta_py[{y , 2*position-x}] = delta_tempy[{x , y}];
-            //Lower half
-            //left
-            delta_px[{2*position-x , 2*position-y}] = delta_tempx[{x , y}];
-            delta_px[{2*position-y , 2*position-x}] = delta_tempx[{x , y}];
-            delta_py[{2*position-x , 2*position-y}] = delta_tempy[{x , y}];
-            delta_py[{2*position-y , 2*position-x}] = delta_tempy[{x , y}];
-            //right
-            delta_px[{x , 2*position-y}] = delta_tempx[{x , y}];
-            delta_px[{2*position-y , x}] = delta_tempx[{x , y}];
-            delta_py[{x , 2*position-y}] = delta_tempy[{x , y}];
-            delta_py[{2*position-y , x}] = delta_tempy[{x , y}];
-        }
-    }
+//         #pragma omp parallel for
+//         for(unsigned int y = position; y <= x; y++)
+//         {                   
+//             delta_tempx[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{(x+1)%system_size, y, 0,0,0})*coupling_potential_p*0.5 + delta_px_old[{x , y}]*0.5);
+//             delta_tempy[{x , y}] = (-pe.calculateExpectationValue({x,y, 0,1, 0},{x, (y+1)%system_size, 0,0,0})*coupling_potential_p*0.5 + delta_py_old[{x , y}]*0.5);
+//             if(abs((delta_tempx[{x , y}]-delta_px_old[{x , y}]))/abs(delta_p_start) > diff)
+//             {
+//                 diff = abs(delta_tempx[{x , y}]-delta_px_old[{x , y}]);
+//             }
+//         }
+//     }
+//     for(unsigned int x=position; x < system_size; x++)
+//     {
+//         for(unsigned int y = position; y <= x; y++)
+//         {
+//             //Upper half
+//             //right
+//             delta_px[{x , y}] = delta_tempx[{x , y}];
+//             delta_px[{y , x}] = delta_tempx[{x , y}];
+//             delta_py[{x , y}] = delta_tempy[{x , y}];
+//             delta_py[{y , x}] = delta_tempy[{x , y}];
+//             //left
+//             delta_px[{2*position-x , y}] = delta_tempx[{x , y}];
+//             delta_px[{y , 2*position-x}] = delta_tempx[{x , y}];
+//             delta_py[{2*position-x , y}] = delta_tempy[{x , y}];
+//             delta_py[{y , 2*position-x}] = delta_tempy[{x , y}];
+//             //Lower half
+//             //left
+//             delta_px[{2*position-x , 2*position-y}] = delta_tempx[{x , y}];
+//             delta_px[{2*position-y , 2*position-x}] = delta_tempx[{x , y}];
+//             delta_py[{2*position-x , 2*position-y}] = delta_tempy[{x , y}];
+//             delta_py[{2*position-y , 2*position-x}] = delta_tempy[{x , y}];
+//             //right
+//             delta_px[{x , 2*position-y}] = delta_tempx[{x , y}];
+//             delta_px[{2*position-y , x}] = delta_tempx[{x , y}];
+//             delta_py[{x , 2*position-y}] = delta_tempy[{x , y}];
+//             delta_py[{2*position-y , x}] = delta_tempy[{x , y}];
+//         }
+//     }
 
 
-    Streams::out << "Updated deltap = " << to_string(real(delta_tempx[{position,position}])) << ", ddeltap = " << to_string(real(diff/delta_p_start)) << endl;
-    if(abs(diff/delta_p_start) < EPS)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
+//     Streams::out << "Updated deltap = " << to_string(real(delta_tempx[{position,position}])) << ", ddeltap = " << to_string(real(diff/delta_p_start)) << endl;
+//     if(abs(diff/delta_p_start) < EPS)
+//     {
+//         return true;
+//     }
+//     else
+//     {
+//         return false;
+//     }
+// }
 
 
 
@@ -1269,11 +1287,12 @@ void Calculation::DoScCalc()
 {
     model.construct();
     solver.setModel(model);
+    solver.setUseGPUAcceleration(use_gpu);
     #ifdef GPU_CALCULATION
     solver.setScaleFactor(energy_bandwidth);
     solver.setNumCoefficients(chebychev_coefficients);
-    solver.setUseLookupTable(true);
-    solver.setCalculateCoefficientsOnGPU(use_gpu);
+    // solver.setUseLookupTable(true);
+    // solver.setCalculateCoefficientsOnGPU(use_gpu);
     #endif
 
     cout << "@sc calc" << system_size  << endl;
@@ -1428,7 +1447,9 @@ void Calculation::CalcEigenstates()
     int nr_excited_states = 5;
     double central_value = 0.01;
 
-    model.construct();
+    if(!model.getIsConstructed()){
+        model.construct();
+    }
     Asolver.setModel(model);
     Asolver.setNumLanczosVectors(30*nr_excited_states);
     Asolver.setMaxIterations(max_arnoldi_iterations*10);
@@ -1767,24 +1788,24 @@ Array<double> Calculation::GetRealVec(Array<complex<double>> input)
     return output;
 }
 
-Array<complex<double>> Calculation::CalculateChargeDensity(unsigned int spin)
-{
-    #ifdef GPU_CALCULATION
-	PropertyExtractor::ChebyshevExpander pe(solver);
-    #else
-	PropertyExtractor::Diagonalizer pe(solver);
-    #endif
-    pe.setEnergyWindow(-10, 0, 1000);
-    Array<complex<double>> charge({system_size, system_size});
-    for(unsigned int x=0; x < system_size; x++)
-    {
-        for(unsigned int y = 0; y < system_size; y++)
-        {
-            charge[{x , y}] = pe.calculateExpectationValue({x,y, spin},{x, y, spin});
-        }
-    }
-    return charge;
-}
+// Array<complex<double>> Calculation::CalculateChargeDensity(unsigned int spin)
+// {
+//     #ifdef GPU_CALCULATION
+// 	PropertyExtractor::ChebyshevExpander pe(solver);
+//     #else
+// 	PropertyExtractor::Diagonalizer pe(solver);
+//     #endif
+//     pe.setEnergyWindow(-10, 0, 1000);
+//     Array<complex<double>> charge({system_size, system_size});
+//     for(unsigned int x=0; x < system_size; x++)
+//     {
+//         for(unsigned int y = 0; y < system_size; y++)
+//         {
+//             charge[{x , y}] = pe.calculateExpectationValue({x,y, spin},{x, y, spin});
+//         }
+//     }
+//     return charge;
+// }
 
 
 Array<double> Calculation::GetImagVec(Array<complex<double>> input)

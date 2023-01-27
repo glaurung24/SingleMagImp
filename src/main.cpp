@@ -13,16 +13,8 @@
  * limitations under the License.
  */
 
-/** @package TBTKtemp
- *  @file main.cpp
- *  @brief New project
- *
- *  Empty template project.
- *
- *  @author Kristofer Björnson
- */
-
 #include "TBTK/Streams.h"
+#include "TBTK/TBTK.h"
 #include "Calculation.h"
 #include <math.h>
 #include <string>
@@ -38,16 +30,18 @@ inline bool file_exists (const std::string& name) {
 
 int main(int argc, char **argv){
 	Streams::openLog("Log.txt");
+	//Initialize TBTK.
+    Initialize();
 
 	// for(int mu = 0; mu <= 8; mu++)
 	// {
 		// string old_outFile = "";
 		string outFile;
-		unsigned resolution = 32;
-		double min_val = 1.0;
-		double max_val = 1.4;
+		unsigned resolution = 256;
+		double min_val = 1.3;
+		double max_val = 1.8;
 
-		unsigned system_size = 300;
+		unsigned system_size = 30;
 		double mu = -0.5;
 		// for(unsigned alpha = 0; alpha < resolution*max_val; alpha++){
 		// 	double a = static_cast<double>(alpha)/resolution*0.1;
@@ -82,7 +76,9 @@ int main(int argc, char **argv){
 					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWave";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + to_string(mu) + "_diag_size" + to_string(system_size) + "_PWaveUp";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta51" + "_carefullbelow";
-					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta101" + "_cheby_cpu";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta11" + "_ed";
+					outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta" + to_string(system_size + 1) + "_ed";
+					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta15" + "_temp_0.001";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_sc_delta51" + "_soc";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_nosc_delta51";
 					// outFile = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size) + "_ImpurityLevelSOC";
@@ -94,8 +90,10 @@ int main(int argc, char **argv){
 					// string delta_input_file =  "vz_" + to_string(Vz) +  "mu_-0.5_diag_size151_sc_delta_000.csv";
 					// string delta_input_file = "vz_" + to_string(Vz) +  "mu_" + to_string(mu) +  "_diag_size15_sc_delta_000.csv";
 					// string delta_input_file = "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta31" + "_ed_delta_000.csv";
+					// string delta_input_file =  "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta15" + "_ed_delta_000.csv";
+					// string delta_input_file =  "vz_" + to_string(Vz) + "mu_" + "-0.5" + "_diag_size" + to_string(system_size + 1) + "_sc_delta" + to_string(system_size + 1) + "_ed_delta_000.csv";
 					
-					if(!file_exists(outFile)) //  & file_exists(delta_input_file))
+					if(!file_exists(outFile)) // & file_exists(delta_input_file))
 					{
 						ofstream output(outFile);
 						Calculation calc(outFile, complex<double>(Vz));
@@ -105,6 +103,7 @@ int main(int argc, char **argv){
 						// {
 						calc.setMu(mu);
 						calc.setSystem_length(system_size);
+						calc.setDeltaSimulationSize(system_size +1);
 						// calc.readDeltaCsv(0, delta_input_file);
 						// unsigned int position = calc.getSystemSize()/2;
 						// calc.setTipPosition(position);
@@ -116,11 +115,11 @@ int main(int argc, char **argv){
 						//  cout << to_string(real(dD)) << endl;
 						calc.InitModel();
 						calc.DoScCalc();
-						// calc.WriteOutputSc();
+						calc.WriteOutputSc();
 						// calc.DoCalc();
 						// calc.WriteOutput();
-						// calc.CalcEigenstates();
-						calc.WriteDelta(0);
+						calc.CalcEigenstates();
+						// calc.WriteDelta(0);
 						
 					}
 			//}
